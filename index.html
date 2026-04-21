@@ -34,17 +34,19 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; overscroll-behavior: none; }
+
 body { display: flex; flex-direction: column; min-height: 100vh; }
 
-/* ── MOBILE (default) ── */
 .app { flex: 1; display: flex; flex-direction: column; max-width: 540px; margin: 0 auto; width: 100%; padding: 0 0 env(safe-area-inset-bottom); }
 
+/* HEADER */
 .header { padding: 20px 20px 0; display: flex; align-items: flex-end; justify-content: space-between; }
 .logo { font-family: 'Fraunces', serif; font-weight: 300; font-size: 26px; color: var(--text); letter-spacing: -0.02em; }
 .logo span { color: var(--accent); font-style: italic; }
 .settings-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border2); background: var(--surface); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text2); font-size: 16px; transition: background 0.2s; }
 .settings-btn:hover { background: var(--surface2); }
 
+/* MODE SELECTOR */
 .mode-wrap { padding: 20px 20px 0; }
 .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .mode-tab { padding: 12px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; transition: all 0.2s; }
@@ -53,12 +55,15 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 .mode-tab-label { font-size: 11px; color: var(--text2); letter-spacing: 0.05em; }
 .mode-tab.active .mode-tab-label { color: var(--accent); }
 
+/* RECORDER CARD */
 .recorder-card { margin: 16px 20px 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
 
+/* VISUALIZER */
 .viz-wrap { height: 64px; display: flex; align-items: center; justify-content: center; gap: 2px; margin-bottom: 16px; }
 .viz-bar { width: 3px; border-radius: 2px; background: var(--border2); transition: height 0.05s ease, background 0.3s; min-height: 4px; }
 .viz-bar.active { background: var(--accent); }
 
+/* TIMER */
 .timer-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .timer { font-family: 'Fraunces', serif; font-size: 48px; font-weight: 300; letter-spacing: -0.03em; color: var(--text); }
 .status-pill { font-size: 11px; padding: 5px 12px; border-radius: 99px; letter-spacing: 0.08em; font-weight: 500; }
@@ -67,22 +72,28 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 .status-paused { background: var(--amber-dim); color: var(--amber); }
 .status-processing { background: var(--accent-dim); color: var(--accent); }
 
+/* CONTROLS */
 .controls { display: flex; gap: 10px; }
 .btn-rec { flex: 1; height: 52px; border-radius: var(--radius-sm); border: none; font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; cursor: pointer; letter-spacing: 0.04em; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .btn-main { background: var(--accent); color: #0f1923; }
 .btn-main:hover { filter: brightness(1.1); }
 .btn-main:active { transform: scale(0.97); }
 .btn-main:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; transform: none; filter: none; }
+.btn-sec { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.btn-sec:hover { border-color: var(--border2); color: var(--text); }
+.btn-sec:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-sq { width: 52px; height: 52px; flex: none; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border); color: var(--text2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
 .btn-sq:hover { border-color: var(--border2); }
 .btn-sq:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-sq.danger { color: var(--red); border-color: rgba(226,83,74,0.3); }
 
+/* WAKE LOCK indicator */
 .wakelock-row { margin-top: 10px; display: flex; align-items: center; gap: 6px; }
 .wl-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
 .wl-dot.on { background: var(--accent); }
 .wl-label { font-size: 10px; color: var(--text3); letter-spacing: 0.05em; }
 
+/* SEGMENTS */
 .segments-wrap { margin: 12px 20px 0; }
 .seg-header { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; margin-bottom: 8px; }
 .seg-list { display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto; }
@@ -93,7 +104,9 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 .seg-ok { background: var(--accent-dim); color: var(--accent); }
 .seg-pending { background: var(--amber-dim); color: var(--amber); }
 .seg-error { background: var(--red-dim); color: var(--red); }
+.seg-retry { background: rgba(240,160,48,0.2); color: var(--amber); border: 1px solid rgba(240,160,48,0.4); }
 
+/* TRANSCRIPTION */
 .section { margin: 12px 20px 0; }
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .section-label { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; }
@@ -107,11 +120,13 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 .text-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; font-size: 12px; line-height: 1.8; color: var(--text); min-height: 100px; max-height: 180px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
 .text-box.empty { color: var(--text3); font-style: italic; }
 
+/* HCOP OUTPUT */
 .hcop-box { background: var(--surface); border: 1px solid rgba(0,200,150,0.2); border-radius: var(--radius-sm); padding: 14px; font-size: 12px; line-height: 1.9; color: var(--text); min-height: 120px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
 .hcop-box.empty { color: var(--text3); font-style: italic; border-color: var(--border); }
 .hcop-box.loading { color: var(--text2); animation: pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
+/* SETTINGS PANEL */
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: none; align-items: flex-end; }
 .overlay.open { display: flex; }
 .settings-panel { background: var(--surface); border-radius: var(--radius) var(--radius) 0 0; border-top: 1px solid var(--border); padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); width: 100%; max-height: 85vh; overflow-y: auto; animation: slideUp 0.25s ease; }
@@ -119,82 +134,23 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 .settings-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 300; margin-bottom: 20px; }
 .field { margin-bottom: 16px; }
 .field-label { font-size: 11px; color: var(--text2); letter-spacing: 0.06em; margin-bottom: 6px; display: block; }
-.field input, .field select, .field textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 12px; outline: none; transition: border-color 0.15s; }
-.field input:focus, .field textarea:focus { border-color: var(--border2); }
+.field input, .field select, .field textarea {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 12px; outline: none;
+  transition: border-color 0.15s;
+}
+.field input:focus, .field select, .field textarea:focus { border-color: var(--border2); }
 .field select { appearance: none; }
 .field textarea { min-height: 100px; resize: vertical; line-height: 1.6; }
 .field select option { background: var(--surface2); }
 .settings-save { width: 100%; height: 48px; background: var(--accent); color: #0f1923; border: none; border-radius: var(--radius-sm); font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; cursor: pointer; margin-top: 8px; letter-spacing: 0.04em; }
 
+/* BOTTOM SPACER */
 .spacer { height: 24px; }
+
+/* COPY TOAST */
 .toast { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: #0f1923; font-size: 12px; padding: 8px 20px; border-radius: 99px; opacity: 0; transition: all 0.3s; pointer-events: none; font-weight: 500; letter-spacing: 0.04em; z-index: 200; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* ── DESKTOP layout (≥900px) ── */
-@media (min-width: 900px) {
-  body { overflow: hidden; height: 100vh; }
-
-  .app {
-    max-width: 100%;
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    grid-template-rows: auto 1fr;
-    height: 100vh;
-    padding: 0;
-    overflow: hidden;
-  }
-
-  /* Header full width */
-  .header { grid-column: 1 / -1; padding: 20px 24px 12px; }
-
-  /* Columna izquierda */
-  .col-left {
-    grid-column: 1;
-    grid-row: 2;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    padding-bottom: 20px;
-    border-right: 1px solid var(--border2);
-    min-height: 0;
-  }
-
-  /* Columna derecha */
-  .col-right {
-    grid-column: 2;
-    grid-row: 2;
-    display: flex;
-    flex-direction: column;
-    padding: 12px 24px 20px 20px;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .mode-wrap    { padding: 12px 20px 0; }
-  .recorder-card { margin: 10px 20px 0; }
-  .segments-wrap { margin: 8px 20px 0; }
-  .section-transc { margin: 8px 20px 0; }
-  .section-transc .text-box { max-height: 150px; }
-  .spacer { display: none; }
-
-  /* HCOP derecha — ocupa todo el alto restante */
-  .section-hcop {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-  }
-  .section-hcop .section-header { margin-bottom: 8px; flex-shrink: 0; }
-  .section-hcop .hcop-box {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    font-size: 13px;
-    line-height: 2;
-    overflow-y: auto;
-  }
-}
 </style>
 </head>
 <body>
@@ -205,7 +161,6 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="settings-btn" onclick="openSettings()">⚙</div>
   </div>
 
-  <div class="col-left">
   <div class="mode-wrap">
     <div class="mode-tabs">
       <div class="mode-tab active" id="tab-consulta" onclick="setMode('consulta')">
@@ -221,15 +176,18 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
   <div class="recorder-card">
     <div class="viz-wrap" id="vizWrap"></div>
+
     <div class="timer-row">
       <div class="timer" id="timer">00:00</div>
       <div class="status-pill status-idle" id="statusPill">LISTO</div>
     </div>
+
     <div class="controls">
       <button class="btn-rec btn-main" id="btnStart" onclick="startRec()">⬤ GRABAR</button>
       <button class="btn-sq" id="btnPause" onclick="togglePause()" disabled title="Pausar">⏸</button>
       <button class="btn-sq danger" id="btnStop" onclick="stopRec()" disabled title="Detener">⏹</button>
     </div>
+
     <div class="wakelock-row">
       <div class="wl-dot" id="wlDot"></div>
       <div class="wl-label" id="wlLabel">PANTALLA ACTIVA: INACTIVO</div>
@@ -241,7 +199,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="seg-list" id="segList"></div>
   </div>
 
-  <div class="section section-transc">
+  <div class="section">
     <div class="section-header">
       <div class="section-label">TRANSCRIPCIÓN</div>
       <div class="section-actions">
@@ -252,20 +210,17 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="text-box empty" id="transcBox">La transcripción aparecerá aquí...</div>
   </div>
 
-  </div><!-- /col-left -->
-  <div class="col-right">
-  <div class="section section-hcop">
+  <div class="section">
     <div class="section-header">
-      <div class="section-label">HCOP — GPT-4o</div>
+      <div class="section-label">HCOP — CLAUDE</div>
       <div class="section-actions">
         <button class="btn-small" onclick="copyText('hcopBox')">copiar HC</button>
         <button class="btn-small" onclick="clearHcop()">limpiar</button>
       </div>
     </div>
-    <div class="hcop-box empty" id="hcopBox">El HCOP aparecerá aquí...</div>
+    <div class="hcop-box empty" id="hcopBox">El HCOP generado por Claude aparecerá aquí...</div>
   </div>
 
-  </div><!-- /col-right -->
   <div class="spacer"></div>
 </div>
 
@@ -273,6 +228,12 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 <div class="overlay" id="overlay" onclick="overlayClick(event)">
   <div class="settings-panel">
     <div class="settings-title">Configuración</div>
+
+    <div class="field">
+      <label class="field-label">API KEY — ANTHROPIC (CLAUDE)</label>
+      <input type="password" id="cfgAnthropic" placeholder="sk-ant-..."/>
+    </div>
+
     <div class="field">
       <label class="field-label">MÉTODO DE TRANSCRIPCIÓN</label>
       <select id="cfgMethod" onchange="onMethodChange()">
@@ -280,45 +241,24 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
         <option value="native">Web Speech — gratuito, sin API</option>
       </select>
     </div>
+
     <div class="field" id="openaiField">
-      <label class="field-label">API KEY — OPENAI (transcripción + HCOP)</label>
+      <label class="field-label">API KEY — OPENAI (WHISPER)</label>
       <input type="password" id="cfgOpenai" placeholder="sk-..."/>
     </div>
+
     <div class="field">
       <label class="field-label">PROMPT — CONSULTA COMPLETA</label>
-      <textarea id="cfgPromptConsulta">Sos un asistente médico clínico especializado en cardiología y prevención cardiovascular. Transcribiste un dictado o consulta médica. Tu tarea es formatear el texto como historia clínica en primera persona del médico, sin viñetas, sin guiones, sin flechas, sin íconos, listo para copiar a la historia clínica.
-
-REGLAS CRÍTICAS:
-1. Conservá TODOS los valores numéricos exactamente como se dictan (troponinas, presiones, frecuencias, dosis, fracción de eyección, clase funcional).
-2. Conservá TODOS los nombres de medicamentos con sus dosis y combinaciones completas.
-3. Incluí siempre la clase funcional (CF) si se menciona, y cualquier síntoma con su contexto.
-4. No omitás ningún dato clínico mencionado, aunque parezca menor.
-5. Corregí errores fonéticos obvios (ej: "balsartan" → "valsartán", "amigadrona" → "amiodarona") pero sin cambiar valores ni dosis.
-6. La medicación va listada verticalmente, una por línea, sin viñetas ni guiones, solo el nombre con dosis.
-7. El plan terapéutico debe reflejar exactamente lo que se dictó, sin agregar inferencias ni frases genéricas.
-8. Secciones: incluir SOLO las que tienen contenido. Si no hay datos de una sección, omitirla completamente.
-9. Cada sección en una línea separada con su nombre en mayúsculas seguido de dos puntos.
-10. Secciones posibles (solo las que apliquen): MOTIVO DE CONSULTA, ANTECEDENTES PERSONALES, ANTECEDENTES HEREDOFAMILIARES, ANTECEDENTES PROPIOS DE LA MUJER, MEDICACIÓN ACTUAL, ALIMENTACIÓN, EJERCICIO, SUEÑO, TRABAJO, ASPECTOS PSICOSOCIALES, EXAMEN FÍSICO, ESTUDIOS COMPLEMENTARIOS, IMPRESIÓN DIAGNÓSTICA, PLAN TERAPÉUTICO.
-11. Texto fluido y profesional, primera persona del médico.</textarea>
+      <textarea id="cfgPromptConsulta">Sos un asistente médico clínico. Transcribiste una consulta cardiológica completa. Formatéala como historia clínica en primera persona del médico, sin viñetas, sin flechas, sin íconos. Secciones: motivo de consulta, antecedentes relevantes mencionados, medicación actual, examen físico si se describe, impresión diagnóstica, plan terapéutico. Si hay datos de laboratorio, usá formato HCLAB: una sola línea, abreviaturas, sin unidades, valores anormales en **negrita**, sin índices eritrocitarios ni serie blanca. Omití secciones sin datos. Texto listo para copiar a historia clínica.</textarea>
     </div>
+
     <div class="field">
       <label class="field-label">PROMPT — DICTADO POST-CONSULTA</label>
-      <textarea id="cfgPromptDictado">Sos un asistente médico clínico especializado en cardiología y prevención cardiovascular. El médico dictó un resumen libre de una consulta. Tu tarea es formatear el texto como historia clínica en primera persona del médico, sin viñetas, sin guiones, sin flechas, sin íconos, listo para copiar a la historia clínica.
-
-REGLAS CRÍTICAS:
-1. Conservá TODOS los valores numéricos exactamente como se dictan (troponinas, presiones, frecuencias, dosis, fracción de eyección, clase funcional).
-2. Conservá TODOS los nombres de medicamentos con sus dosis y combinaciones completas.
-3. Incluí siempre la clase funcional (CF) si se menciona, y cualquier síntoma con su contexto.
-4. No omitás ningún dato clínico mencionado, aunque parezca menor.
-5. Corregí errores fonéticos obvios (ej: "balsartan" → "valsartán", "amigadrona" → "amiodarona") pero sin cambiar valores ni dosis.
-6. La medicación va listada verticalmente, una por línea, sin viñetas ni guiones, solo el nombre con dosis.
-7. El plan terapéutico debe reflejar exactamente lo que se dictó, sin agregar inferencias ni frases genéricas.
-8. Secciones: incluir SOLO las que tienen contenido. Si no hay datos de una sección, omitirla completamente.
-9. Cada sección en una línea separada con su nombre en mayúsculas seguido de dos puntos.
-10. Secciones posibles (solo las que apliquen): MOTIVO DE CONSULTA, ANTECEDENTES PERSONALES, ANTECEDENTES HEREDOFAMILIARES, ANTECEDENTES PROPIOS DE LA MUJER, MEDICACIÓN ACTUAL, ALIMENTACIÓN, EJERCICIO, SUEÑO, TRABAJO, ASPECTOS PSICOSOCIALES, EXAMEN FÍSICO, ESTUDIOS COMPLEMENTARIOS, IMPRESIÓN DIAGNÓSTICA, PLAN TERAPÉUTICO.
-11. Texto fluido y profesional, primera persona del médico.</textarea>
+      <textarea id="cfgPromptDictado">Sos un asistente médico. El médico dictó un resumen libre de una consulta cardiológica. Convertilo en una evolución clínica en primera persona, sin viñetas, sin flechas, sin íconos, lista para copiar a la historia clínica. Incluí: motivo de consulta o control, hallazgos clínicos relevantes, medicación mencionada, plan. Si hay datos de laboratorio, usá formato HCLAB: una sola línea, abreviaturas, sin unidades, valores anormales en **negrita**. Omití lo que no se mencione. Redactá de forma fluida y profesional.</textarea>
     </div>
+
     <button class="settings-save" onclick="saveSettings()">Guardar configuración</button>
+    <button class="settings-save" style="margin-top:8px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="resetPrompts()">Restaurar prompts por defecto</button>
   </div>
 </div>
 
@@ -354,6 +294,10 @@ let recognition = null;
 let transcriptionText = '';
 let segmentCount = 0;
 let segments = [];
+let segRetryTimers = {};
+
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [8000, 16000, 25000];
 
 const SEGMENT_MS = 90000;
 
@@ -365,6 +309,7 @@ function setMode(m) {
 
 function getSettings() {
   return {
+    anthropic: localStorage.getItem('cr_anthropic') || '',
     openai: localStorage.getItem('cr_openai') || '',
     method: localStorage.getItem('cr_method') || 'whisper',
     promptConsulta: localStorage.getItem('cr_prompt_consulta') || document.getElementById('cfgPromptConsulta').value,
@@ -374,6 +319,7 @@ function getSettings() {
 
 function openSettings() {
   const s = getSettings();
+  document.getElementById('cfgAnthropic').value = s.anthropic;
   document.getElementById('cfgOpenai').value = s.openai;
   document.getElementById('cfgMethod').value = s.method;
   document.getElementById('cfgPromptConsulta').value = s.promptConsulta;
@@ -388,6 +334,7 @@ function onMethodChange() {
 }
 
 function saveSettings() {
+  localStorage.setItem('cr_anthropic', document.getElementById('cfgAnthropic').value.trim());
   localStorage.setItem('cr_openai', document.getElementById('cfgOpenai').value.trim());
   localStorage.setItem('cr_method', document.getElementById('cfgMethod').value);
   localStorage.setItem('cr_prompt_consulta', document.getElementById('cfgPromptConsulta').value);
@@ -400,6 +347,15 @@ function overlayClick(e) {
   if (e.target === document.getElementById('overlay')) {
     document.getElementById('overlay').classList.remove('open');
   }
+}
+
+function resetPrompts() {
+  localStorage.removeItem('cr_prompt_consulta');
+  localStorage.removeItem('cr_prompt_dictado');
+  // Recargar defaults del HTML en los campos
+  document.getElementById('cfgPromptConsulta').value = document.getElementById('cfgPromptConsulta').defaultValue;
+  document.getElementById('cfgPromptDictado').value = document.getElementById('cfgPromptDictado').defaultValue;
+  showToast('Prompts restaurados por defecto');
 }
 
 function setStatus(text, cls) {
@@ -471,11 +427,21 @@ function stopLevelMeter() {
 
 async function startRec() {
   const settings = getSettings();
-  if (!settings.openai) { openSettings(); showToast('Configurá la API Key primero'); return; }
+  if (!settings.anthropic) {
+    openSettings();
+    showToast('Configurá las API Keys primero');
+    return;
+  }
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, sampleRate: 16000 }, video: false });
-  } catch(e) { showToast('Sin acceso al micrófono'); return; }
+  } catch(e) {
+    showToast('Sin acceso al micrófono');
+    return;
+  }
 
+  // Cancelar reintentos pendientes de sesión anterior
+  Object.values(segRetryTimers).forEach(t => clearTimeout(t));
+  segRetryTimers = {};
   transcriptionText = '';
   segments = [];
   segmentCount = 0;
@@ -488,6 +454,7 @@ async function startRec() {
   seconds = 0;
   document.getElementById('timer').textContent = '00:00';
   document.getElementById('btnAnalyze').disabled = true;
+
   document.getElementById('btnStart').disabled = true;
   document.getElementById('btnPause').disabled = false;
   document.getElementById('btnStop').disabled = false;
@@ -497,15 +464,24 @@ async function startRec() {
   timerInterval = setInterval(updateTimer, 1000);
   await acquireWakeLock();
   startLevelMeter();
-  if (settings.method === 'native') startNative();
-  else startWhisperRecorder();
+
+  const method = settings.method;
+  if (method === 'native') {
+    startNative();
+  } else {
+    startWhisperRecorder();
+  }
 }
 
 function startWhisperRecorder() {
-  const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? { mimeType: 'audio/webm;codecs=opus' } : {};
+  const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+    ? { mimeType: 'audio/webm;codecs=opus' } : {};
   mediaRecorder = new MediaRecorder(stream, opts);
-  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) { audioChunks.push(e.data); allChunks.push(e.data); } };
+  mediaRecorder.ondataavailable = e => {
+    if (e.data && e.data.size > 0) { audioChunks.push(e.data); allChunks.push(e.data); }
+  };
   mediaRecorder.start(1000);
+
   segmentInterval = setInterval(async () => {
     if (!isPaused && audioChunks.length > 0) {
       const blob = new Blob([...audioChunks], { type: mediaRecorder.mimeType || 'audio/webm' });
@@ -565,27 +541,36 @@ async function stopRec() {
   releaseWakeLock();
   stopLevelMeter();
   setStatus('PROCESANDO', 'processing');
+
   document.getElementById('btnStart').disabled = false;
   document.getElementById('btnPause').disabled = true;
   document.getElementById('btnStop').disabled = true;
   document.getElementById('btnPause').textContent = '⏸';
+
   if (recognition) { recognition.stop(); recognition = null; }
   if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
     await new Promise(r => { mediaRecorder.onstop = r; mediaRecorder.stop(); });
   }
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+
   const settings = getSettings();
-  if (settings.method === 'whisper' && allChunks.length > 0) {
+  if (settings.method === 'whisper') {
     await new Promise(r => setTimeout(r, 500));
-    const fullBlob = new Blob(allChunks, { type: 'audio/webm' });
-    segmentCount++;
-    await transcribeSegment(fullBlob, segmentCount, true);
+    // Si ya hubo segmentos intermedios, transcribir solo los chunks restantes (no reenviar todo)
+    const chunksToSend = audioChunks.length > 0 ? audioChunks : allChunks;
+    const isFinal = segmentCount === 0; // solo reemplaza si no hubo segmentos previos
+    const finalBlob = new Blob(chunksToSend, { type: mediaRecorder?.mimeType || 'audio/webm' });
+    if (finalBlob.size > 2000) {
+      segmentCount++;
+      await transcribeSegment(finalBlob, segmentCount, isFinal);
+    }
   }
+
   setStatus('LISTO', 'idle');
   document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
 }
 
-function addSegmentUI(num) {
+function addSegmentUI(num, status) {
   document.getElementById('segmentsWrap').style.display = 'block';
   const div = document.createElement('div');
   div.className = 'seg-item';
@@ -595,17 +580,26 @@ function addSegmentUI(num) {
   document.getElementById('segList').scrollTop = 99999;
 }
 
-function updateSegmentUI(num, text, ok) {
+function updateSegmentUI(num, text, status) {
   const txt = document.getElementById('seg-txt-' + num);
   const st = document.getElementById('seg-st-' + num);
   if (txt) txt.textContent = text.slice(0,60) + (text.length>60?'…':'');
-  if (st) { st.textContent = ok ? 'OK' : 'ERROR'; st.className = 'seg-status ' + (ok?'seg-ok':'seg-error'); }
+  if (st) {
+    const map = { ok: ['OK','seg-ok'], error: ['ERROR','seg-error'], retry: ['REINTENTANDO','seg-retry'] };
+    const [label, cls] = map[status] || ['...','seg-pending'];
+    st.textContent = label;
+    st.className = 'seg-status ' + cls;
+  }
 }
 
-async function transcribeSegment(blob, num, isFinal) {
+async function transcribeSegment(blob, num, isFinal, retryCount) {
+  retryCount = retryCount || 0;
   const settings = getSettings();
-  if (!settings.openai) { showToast('Falta API Key'); return; }
-  addSegmentUI(num);
+  if (!settings.openai) { showToast('Falta API Key de OpenAI'); return; }
+
+  if (retryCount === 0) addSegmentUI(num);
+  else updateSegmentUI(num, `reintentando (#${retryCount})...`, 'retry');
+
   try {
     const fd = new FormData();
     fd.append('file', blob, 'audio.webm');
@@ -616,39 +610,67 @@ async function transcribeSegment(blob, num, isFinal) {
       headers: { 'Authorization': 'Bearer ' + settings.openai },
       body: fd
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'HTTP ' + res.status);
+    }
     const data = await res.json();
     if (data.text) {
       if (isFinal) transcriptionText = data.text;
       else transcriptionText += (transcriptionText ? ' ' : '') + data.text;
       setTranscription(transcriptionText);
-      updateSegmentUI(num, data.text, true);
+      updateSegmentUI(num, data.text, 'ok');
+      document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
     } else {
-      updateSegmentUI(num, data.error?.message || 'error', false);
+      throw new Error(data.error?.message || 'respuesta vacía');
     }
-  } catch(e) { updateSegmentUI(num, 'error de red', false); }
+  } catch(e) {
+    if (retryCount < MAX_RETRIES) {
+      const delay = RETRY_DELAYS[retryCount];
+      updateSegmentUI(num, `error — reintento en ${Math.round(delay/1000)}s`, 'retry');
+      segRetryTimers[num] = setTimeout(() => {
+        transcribeSegment(blob, num, isFinal, retryCount + 1);
+      }, delay);
+    } else {
+      updateSegmentUI(num, 'error: ' + e.message, 'error');
+      showToast('Seg #' + num + ': falló tras ' + MAX_RETRIES + ' intentos');
+    }
+  }
 }
 
 async function analyzeWithClaude() {
   const settings = getSettings();
-  if (!settings.openai) { openSettings(); return; }
+  if (!settings.anthropic) { openSettings(); return; }
   const text = transcriptionText.trim();
   if (!text) return;
   const prompt = mode === 'consulta' ? settings.promptConsulta : settings.promptDictado;
-  setHcop('Procesando con GPT-4o...', false, true);
+
+  setHcop('Procesando con Claude...', false, true);
   document.getElementById('btnAnalyze').disabled = true;
+
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openai },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.anthropic,
+        'anthropic-version': '2023-06-01'
+      },
       body: JSON.stringify({
-        model: 'gpt-4o', max_tokens: 2000, temperature: 0.2,
-        messages: [{ role: 'system', content: prompt }, { role: 'user', content: 'TRANSCRIPCIÓN:\n' + text }]
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt + '\n\nTRANSCRIPCIÓN:\n' + text }]
       })
     });
     const data = await res.json();
-    if (data.choices?.[0]?.message?.content) setHcop(data.choices[0].message.content);
-    else setHcop('Error: ' + (data.error?.message || 'respuesta vacía'));
-  } catch(e) { setHcop('Error de conexión: ' + e.message); }
+    if (data.content?.[0]?.text) {
+      setHcop(data.content[0].text);
+    } else {
+      setHcop('Error: ' + (data.error?.message || 'respuesta vacía'));
+    }
+  } catch(e) {
+    setHcop('Error de conexión: ' + e.message);
+  }
   document.getElementById('btnAnalyze').disabled = false;
 }
 
@@ -660,7 +682,7 @@ function setTranscription(text, empty) {
 
 function setHcop(text, empty, loading) {
   const el = document.getElementById('hcopBox');
-  if (empty || !text) { el.textContent = 'El HCOP aparecerá aquí...'; el.className = 'hcop-box empty'; }
+  if (empty || !text) { el.textContent = 'El HCOP generado por Claude aparecerá aquí...'; el.className = 'hcop-box empty'; }
   else if (loading) { el.textContent = text; el.className = 'hcop-box loading'; }
   else { el.textContent = text; el.className = 'hcop-box'; }
 }
@@ -681,10 +703,14 @@ function showToast(msg) {
 }
 
 document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && isRecording && !isPaused && !wakeLock) await acquireWakeLock();
+  if (document.visibilityState === 'visible' && isRecording && !isPaused && !wakeLock) {
+    await acquireWakeLock();
+  }
 });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
