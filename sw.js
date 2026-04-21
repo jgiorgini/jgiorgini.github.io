@@ -1,4 +1,4 @@
-const CACHE = 'cardiorec-v4';
+const CACHE = 'cardiorec-v7';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
