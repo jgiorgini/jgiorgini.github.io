@@ -320,6 +320,7 @@ let transcriptionText = '';
 let segmentCount = 0;
 let segments = [];
 let segRetryTimers = {};
+let initChunk = null; // primer chunk de webm — contiene el header EBML necesario
 
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [8000, 16000, 25000];
@@ -470,6 +471,7 @@ async function startRec() {
   // Cancelar reintentos pendientes de sesión anterior
   Object.values(segRetryTimers).forEach(t => clearTimeout(t));
   segRetryTimers = {};
+  initChunk = null;
   transcriptionText = '';
   segments = [];
   segmentCount = 0;
@@ -507,13 +509,21 @@ function startWhisperRecorder() {
     ? { mimeType: 'audio/webm;codecs=opus' } : {};
   mediaRecorder = new MediaRecorder(stream, opts);
   mediaRecorder.ondataavailable = e => {
-    if (e.data && e.data.size > 0) { audioChunks.push(e.data); allChunks.push(e.data); }
+    if (e.data && e.data.size > 0) {
+      allChunks.push(e.data);
+      if (!initChunk) {
+        initChunk = e.data; // primer chunk = header EBML de webm (necesario para Whisper)
+      } else {
+        audioChunks.push(e.data);
+      }
+    }
   };
   mediaRecorder.start(1000);
 
   segmentInterval = setInterval(async () => {
-    if (!isPaused && audioChunks.length > 0) {
-      const blob = new Blob([...audioChunks], { type: mediaRecorder.mimeType || 'audio/webm' });
+    if (!isPaused && audioChunks.length > 0 && initChunk) {
+      // Siempre anteponer el initChunk para que el blob sea un webm válido
+      const blob = new Blob([initChunk, ...audioChunks], { type: mediaRecorder.mimeType || 'audio/webm' });
       audioChunks = [];
       segmentCount++;
       await transcribeSegment(blob, segmentCount);
@@ -587,8 +597,12 @@ async function stopRec() {
   if (settings.method === 'whisper') {
     await new Promise(r => setTimeout(r, 500));
     // Si ya hubo segmentos intermedios, transcribir solo los chunks restantes (no reenviar todo)
-    const chunksToSend = audioChunks.length > 0 ? audioChunks : allChunks;
-    const isFinal = segmentCount === 0; // solo reemplaza si no hubo segmentos previos
+    // Si hubo segmentos previos: enviar chunks restantes con header antepuesto
+    // Si no hubo segmentos: enviar todo (allChunks ya tiene el header como primer elemento)
+    const chunksToSend = (audioChunks.length > 0 && initChunk)
+      ? [initChunk, ...audioChunks]
+      : allChunks;
+    const isFinal = segmentCount === 0;
     const finalBlob = new Blob(chunksToSend, { type: mediaRecorder?.mimeType || 'audio/webm' });
     if (finalBlob.size > 2000) {
       segmentCount++;
@@ -689,19 +703,23 @@ async function analyzeWithClaude() {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt + '\n\nTRANSCRIPCIÓN:\n' + text }]
       })
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
+    }
     const data = await res.json();
     if (data.content?.[0]?.text) {
       setHcop(data.content[0].text);
     } else {
-      setHcop('Error: ' + (data.error?.message || 'respuesta vacía'));
+      throw new Error(data.error?.message || 'respuesta vacía');
     }
   } catch(e) {
-    setHcop('Error de conexión: ' + e.message);
+    setHcop('Error: ' + e.message);
   }
   document.getElementById('btnAnalyze').disabled = false;
 }
