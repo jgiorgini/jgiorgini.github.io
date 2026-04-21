@@ -269,12 +269,44 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
     <div class="field">
       <label class="field-label">PROMPT — CONSULTA COMPLETA</label>
-      <textarea id="cfgPromptConsulta">Sos un asistente médico clínico. Transcribiste una consulta cardiológica completa. Formatéala como historia clínica en primera persona del médico, sin viñetas, sin flechas, sin íconos. Secciones: motivo de consulta, antecedentes relevantes mencionados, medicación actual, examen físico si se describe, impresión diagnóstica, plan terapéutico. Si hay datos de laboratorio, usá formato HCLAB: una sola línea, abreviaturas, sin unidades, valores anormales en **negrita**, sin índices eritrocitarios ni serie blanca. Omití secciones sin datos. Texto listo para copiar a historia clínica.</textarea>
+      <textarea id="cfgPromptConsulta">Sos un asistente médico clínico especializado en cardiología y prevención cardiovascular. Transcribiste un dictado o consulta médica. Tu tarea es formatear el texto como historia clínica en primera persona del médico, sin viñetas, sin guiones, sin flechas, sin íconos, listo para copiar a la historia clínica.
+
+REGLAS CRÍTICAS:
+1. Conservá TODOS los valores numéricos exactamente como se dictan (troponinas, presiones, frecuencias, dosis, fracción de eyección, clase funcional).
+2. Conservá TODOS los nombres de medicamentos con sus dosis y combinaciones completas.
+3. Incluí siempre la clase funcional (CF) si se menciona, y cualquier síntoma con su contexto.
+4. No omitás ningún dato clínico mencionado, aunque parezca menor.
+5. Corregí errores fonéticos obvios (ej: "balsartan" → "valsartán", "amigadrona" → "amiodarona") pero sin cambiar valores ni dosis.
+6. La medicación va listada verticalmente, una por línea, sin viñetas ni guiones, solo el nombre con dosis.
+7. El plan terapéutico debe reflejar exactamente lo que se dictó, sin agregar inferencias ni frases genéricas.
+8. Secciones: incluir SOLO las que tienen contenido. Si no hay datos de una sección, omitirla completamente.
+9. Cada sección en una línea separada con su nombre en mayúsculas seguido de dos puntos. Ejemplo: "MOTIVO DE CONSULTA: ..."
+10. Secciones posibles (solo las que apliquen): MOTIVO DE CONSULTA, ANTECEDENTES PERSONALES, ANTECEDENTES HEREDOFAMILIARES, ANTECEDENTES PROPIOS DE LA MUJER, MEDICACIÓN ACTUAL, ALIMENTACIÓN, EJERCICIO, SUEÑO, TRABAJO, ASPECTOS PSICOSOCIALES, EXAMEN FÍSICO, ESTUDIOS COMPLEMENTARIOS, IMPRESIÓN DIAGNÓSTICA, PLAN TERAPÉUTICO.
+11. Texto fluido y profesional, primera persona del médico.
+
+FORMATO HCLAB (si hay datos de laboratorio):
+- Encabezado: LABORATORIO dd/mm/aaaa
+- Todo en una sola línea, separado por comas, sin saltos
+- Nombre abreviado + valor. Sin unidades. Sin rangos. Sin texto explicativo.
+- Excluir siempre: VCM, HCM, CHCM, RDW, GB totales y diferencial leucocitario.
+- Valores anormales en **negrita**. Sin flechas ni símbolos.
+- Orden: Hb, Hto, Plaq → Glu, HbA1c → Urea, Creat, FG → Na, K → GOT, GPT, FAL, BT → ColT, LDL, HDL, TG → otros según caso.
+- Si hay múltiples fechas: una línea HCLAB por fecha.
+Ejemplo: LABORATORIO 21/04/2026: Hb 14.8, Hto 43, Plaq 210000, **Glu 126**, HbA1c 6.7, Urea 38, Creat 1.1, Na 140, K 4.2, **ColT 245**, **LDL 170**, HDL 52, TG 110, PCR 1.2</textarea>
     </div>
 
     <div class="field">
       <label class="field-label">PROMPT — DICTADO POST-CONSULTA</label>
-      <textarea id="cfgPromptDictado">Sos un asistente médico. El médico dictó un resumen libre de una consulta cardiológica. Convertilo en una evolución clínica en primera persona, sin viñetas, sin flechas, sin íconos, lista para copiar a la historia clínica. Incluí: motivo de consulta o control, hallazgos clínicos relevantes, medicación mencionada, plan. Si hay datos de laboratorio, usá formato HCLAB: una sola línea, abreviaturas, sin unidades, valores anormales en **negrita**. Omití lo que no se mencione. Redactá de forma fluida y profesional.</textarea>
+      <textarea id="cfgPromptDictado">Sos un asistente médico. El médico dictó un resumen libre de una consulta cardiológica. Convertilo en una evolución clínica en primera persona, sin viñetas, sin flechas, sin íconos, lista para copiar a la historia clínica. Incluí solo lo mencionado: motivo de consulta o control, hallazgos clínicos relevantes, medicación, plan. Texto fluido y profesional.
+
+Si hay datos de laboratorio, usá formato HCLAB con estas reglas:
+- Encabezado: LABORATORIO dd/mm/aaaa
+- Todo en una sola línea, separado por comas, sin saltos
+- Nombre abreviado + valor. Sin unidades. Sin rangos. Sin texto explicativo
+- Excluir siempre: VCM, HCM, CHCM, RDW, GB totales y diferencial leucocitario
+- Valores anormales en **negrita**. Sin flechas ni símbolos
+- Orden: Hb, Hto, Plaq → Glu, HbA1c → Urea, Creat, FG → Na, K → GOT, GPT, FAL, BT → ColT, LDL, HDL, TG → otros según caso
+- Si hay múltiples fechas: una línea HCLAB por fecha</textarea>
     </div>
 
     <div class="field">
@@ -700,7 +732,8 @@ async function analyzeWithClaude() {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': settings.anthropic,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
