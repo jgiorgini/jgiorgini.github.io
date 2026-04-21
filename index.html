@@ -126,6 +126,17 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 .hcop-box.loading { color: var(--text2); animation: pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
+/* CÁLCULOS AUTOMÁTICOS */
+.calcs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.calc-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+.calc-name { font-size: 10px; color: var(--text3); letter-spacing: 0.06em; margin-bottom: 4px; }
+.calc-val { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 300; color: var(--text); letter-spacing: -0.02em; }
+.calc-unit { font-size: 12px; color: var(--text2); margin-left: 3px; }
+.calc-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 99px; margin-top: 5px; letter-spacing: 0.04em; }
+.badge-ok    { background: var(--accent-dim); color: var(--accent); }
+.badge-warn  { background: var(--amber-dim); color: var(--amber); }
+.badge-alert { background: var(--red-dim); color: var(--red); }
+
 /* SETTINGS PANEL */
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: none; align-items: flex-end; }
 .overlay.open { display: flex; }
@@ -210,11 +221,20 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="text-box empty" id="transcBox">La transcripción aparecerá aquí...</div>
   </div>
 
+  <div class="section" id="calcsWrap" style="display:none">
+    <div class="section-header">
+      <div class="section-label">CÁLCULOS AUTOMÁTICOS</div>
+    </div>
+    <div class="calcs-grid" id="calcsGrid"></div>
+  </div>
+
   <div class="section">
     <div class="section-header">
       <div class="section-label">HCOP — CLAUDE</div>
       <div class="section-actions">
-        <button class="btn-small" onclick="copyText('hcopBox')">copiar HC</button>
+        <button class="btn-small" onclick="shareHCOP('whatsapp')" title="Compartir por WhatsApp">WhatsApp</button>
+        <button class="btn-small" onclick="shareHCOP('mail')" title="Enviar por mail">mail</button>
+        <button class="btn-small" onclick="copyText('hcopBox')">copiar</button>
         <button class="btn-small" onclick="clearHcop()">limpiar</button>
       </div>
     </div>
@@ -255,6 +275,11 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="field">
       <label class="field-label">PROMPT — DICTADO POST-CONSULTA</label>
       <textarea id="cfgPromptDictado">Sos un asistente médico. El médico dictó un resumen libre de una consulta cardiológica. Convertilo en una evolución clínica en primera persona, sin viñetas, sin flechas, sin íconos, lista para copiar a la historia clínica. Incluí: motivo de consulta o control, hallazgos clínicos relevantes, medicación mencionada, plan. Si hay datos de laboratorio, usá formato HCLAB: una sola línea, abreviaturas, sin unidades, valores anormales en **negrita**. Omití lo que no se mencione. Redactá de forma fluida y profesional.</textarea>
+    </div>
+
+    <div class="field">
+      <label class="field-label">DICCIONARIO FONÉTICO (una corrección por línea: error → correcto)</label>
+      <textarea id="cfgDiccionario" style="min-height:80px" placeholder="cipar → CPAP&#10;arneas → apneas&#10;metil → metoprolol"></textarea>
     </div>
 
     <button class="settings-save" onclick="saveSettings()">Guardar configuración</button>
@@ -314,6 +339,7 @@ function getSettings() {
     method: localStorage.getItem('cr_method') || 'whisper',
     promptConsulta: localStorage.getItem('cr_prompt_consulta') || document.getElementById('cfgPromptConsulta').value,
     promptDictado: localStorage.getItem('cr_prompt_dictado') || document.getElementById('cfgPromptDictado').value,
+    diccionario: localStorage.getItem('cr_diccionario') || '',
   };
 }
 
@@ -324,6 +350,7 @@ function openSettings() {
   document.getElementById('cfgMethod').value = s.method;
   document.getElementById('cfgPromptConsulta').value = s.promptConsulta;
   document.getElementById('cfgPromptDictado').value = s.promptDictado;
+  document.getElementById('cfgDiccionario').value = s.diccionario;
   onMethodChange();
   document.getElementById('overlay').classList.add('open');
 }
@@ -339,6 +366,7 @@ function saveSettings() {
   localStorage.setItem('cr_method', document.getElementById('cfgMethod').value);
   localStorage.setItem('cr_prompt_consulta', document.getElementById('cfgPromptConsulta').value);
   localStorage.setItem('cr_prompt_dictado', document.getElementById('cfgPromptDictado').value);
+  localStorage.setItem('cr_diccionario', document.getElementById('cfgDiccionario').value);
   document.getElementById('overlay').classList.remove('open');
   showToast('Configuración guardada');
 }
@@ -449,6 +477,7 @@ async function startRec() {
   audioChunks = [];
   setTranscription('', true);
   setHcop('', true);
+  document.getElementById('calcsWrap').style.display = 'none';
   document.getElementById('segmentsWrap').style.display = 'none';
   document.getElementById('segList').innerHTML = '';
   seconds = 0;
@@ -502,10 +531,11 @@ function startNative() {
   recognition.onresult = e => {
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) transcriptionText += e.results[i][0].transcript + ' ';
+      if (e.results[i].isFinal) transcriptionText += applyDiccionario(e.results[i][0].transcript) + ' ';
       else interim += e.results[i][0].transcript;
     }
     setTranscription(transcriptionText + (interim ? ' ' + interim : ''));
+    runCalcs(transcriptionText);
     document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
   };
   recognition.onend = () => { if (isRecording && !isPaused) recognition.start(); };
@@ -616,10 +646,12 @@ async function transcribeSegment(blob, num, isFinal, retryCount) {
     }
     const data = await res.json();
     if (data.text) {
-      if (isFinal) transcriptionText = data.text;
-      else transcriptionText += (transcriptionText ? ' ' : '') + data.text;
+      const corrected = applyDiccionario(data.text);
+      if (isFinal) transcriptionText = corrected;
+      else transcriptionText += (transcriptionText ? ' ' : '') + corrected;
       setTranscription(transcriptionText);
-      updateSegmentUI(num, data.text, 'ok');
+      runCalcs(transcriptionText);
+      updateSegmentUI(num, corrected, 'ok');
       document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
     } else {
       throw new Error(data.error?.message || 'respuesta vacía');
@@ -700,6 +732,173 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── DICCIONARIO FONÉTICO ────────────────────────────────────────
+function applyDiccionario(text) {
+  const raw = localStorage.getItem('cr_diccionario') || '';
+  const lines = raw.split('\n').filter(l => l.trim());
+  let result = text;
+  for (const line of lines) {
+    const sep = line.includes('→') ? '→' : ':';
+    const parts = line.split(sep);
+    if (parts.length >= 2) {
+      const wrong = parts[0].trim();
+      const correct = parts.slice(1).join(sep).trim();
+      if (wrong) {
+        try {
+          result = result.replace(new RegExp('\\b' + wrong + '\\b', 'gi'), correct);
+        } catch(e) {}
+      }
+    }
+  }
+  return result;
+}
+
+// ─── CÁLCULOS AUTOMÁTICOS ────────────────────────────────────────
+function extractClinicalValues(text) {
+  const t = text;
+  const vals = {};
+
+  // Peso (kg)
+  const pesoM = t.match(/(?:peso[:\s]+|pesa\s+)(\d+(?:[.,]\d+)?)\s*(?:kg|kilos?)?/i)
+             || t.match(/(\d{2,3}(?:[.,]\d+)?)\s*(?:kg|kilos?)/i);
+  if (pesoM) vals.peso = parseFloat(pesoM[1].replace(',', '.'));
+
+  // Talla (cm o metros)
+  const tallaM = t.match(/(?:talla[:\s]+|mide\s+|altura[:\s]+)(\d+(?:[.,]\d+)?)\s*(?:cm|metros?|m\b)?/i);
+  if (tallaM) {
+    let v = parseFloat(tallaM[1].replace(',', '.'));
+    if (v < 3) v = v * 100; // metros → cm
+    vals.talla = v;
+  }
+
+  // TA / PA  (ej: "TA 130/80", "tensión 130/80", "PA 130-80")
+  const taM = t.match(/(?:t\.?a\.?|p\.?a\.?|tens[ií]on|presi[oó]n)\s*(?:arterial)?\s*[:de]?\s*(\d{2,3})\s*[\/\-]\s*(\d{2,3})/i)
+           || t.match(/(\d{2,3})\s*[\/\-]\s*(\d{2,3})\s*(?:de\s+tensi[oó]n|mmhg)/i);
+  if (taM) { vals.tas = parseInt(taM[1]); vals.tad = parseInt(taM[2]); }
+
+  // Cintura
+  const cintM = t.match(/cintura[:\s]+(\d+(?:[.,]\d+)?)\s*(?:cm)?/i)
+             || t.match(/per[íi]metro\s+abdominal[:\s]+(\d+(?:[.,]\d+)?)/i);
+  if (cintM) vals.cintura = parseFloat(cintM[1].replace(',', '.'));
+
+  // Cadera
+  const cadM = t.match(/cadera[:\s]+(\d+(?:[.,]\d+)?)\s*(?:cm)?/i);
+  if (cadM) vals.cadera = parseFloat(cadM[1].replace(',', '.'));
+
+  // Creatinina (mg/dL)
+  const creatM = t.match(/creatinina[:\s]+(\d+(?:[.,]\d+)?)/i);
+  if (creatM) vals.creat = parseFloat(creatM[1].replace(',', '.'));
+
+  // Edad
+  const edadM = t.match(/(\d+)\s*a[ñn]os?/i);
+  if (edadM) vals.edad = parseInt(edadM[1]);
+
+  // Sexo (default masculino si no se detecta)
+  vals.esFemenino = /(?:femenin[ao]|mujer|se[ñn]ora|paciente\s+(?:de\s+sexo\s+)?f\b)/i.test(text);
+
+  return vals;
+}
+
+function badgeCard(name, valStr, unit, badgeLabel, badgeCls) {
+  return `<div class="calc-card">
+    <div class="calc-name">${name}</div>
+    <div class="calc-val">${valStr}<span class="calc-unit">${unit}</span></div>
+    <div class="calc-badge ${badgeCls}">${badgeLabel}</div>
+  </div>`;
+}
+
+function runCalcs(text) {
+  if (!text || text.trim().length < 10) {
+    document.getElementById('calcsWrap').style.display = 'none';
+    return;
+  }
+  const v = extractClinicalValues(text);
+  const cards = [];
+
+  // IMC
+  if (v.peso && v.talla) {
+    const tallaM = v.talla / 100;
+    const imc = v.peso / (tallaM * tallaM);
+    const [lbl, cls] = imc < 18.5 ? ['Bajo peso','badge-warn']
+      : imc < 25 ? ['Normal','badge-ok']
+      : imc < 30 ? ['Sobrepeso','badge-warn']
+      : imc < 35 ? ['Obesidad I','badge-alert']
+      : imc < 40 ? ['Obesidad II','badge-alert']
+      : ['Obesidad III','badge-alert'];
+    cards.push(badgeCard('IMC', imc.toFixed(1), ' kg/m²', lbl, cls));
+  }
+
+  // PP y PAM
+  if (v.tas && v.tad && v.tas > v.tad) {
+    const pp = v.tas - v.tad;
+    const pam = Math.round(v.tad + pp / 3);
+    cards.push(badgeCard('PRESIÓN DE PULSO', pp, ' mmHg',
+      pp >= 60 ? '↑ Elevada' : 'Normal',
+      pp >= 60 ? 'badge-warn' : 'badge-ok'));
+    cards.push(badgeCard('PAM', pam, ' mmHg',
+      pam < 70 ? '↓ Baja' : pam > 100 ? '↑ Alta' : 'Normal',
+      pam < 70 || pam > 100 ? 'badge-warn' : 'badge-ok'));
+  }
+
+  // Cintura/cadera y cintura/talla
+  if (v.cintura && v.cadera) {
+    const cc = v.cintura / v.cadera;
+    const limCC = v.esFemenino ? 0.85 : 0.90;
+    cards.push(badgeCard('CINTURA / CADERA', cc.toFixed(2), '',
+      cc > limCC ? '↑ Riesgo CV' : 'Normal',
+      cc > limCC ? 'badge-alert' : 'badge-ok'));
+  }
+  if (v.cintura && v.talla) {
+    const ct = v.cintura / v.talla;
+    cards.push(badgeCard('CINTURA / TALLA', ct.toFixed(2), '',
+      ct > 0.5 ? '↑ Riesgo' : 'OK',
+      ct > 0.5 ? 'badge-warn' : 'badge-ok'));
+  }
+
+  // CKD-EPI 2021 (race-free)
+  if (v.creat && v.edad) {
+    const kappa = v.esFemenino ? 0.7 : 0.9;
+    const alpha = v.esFemenino ? -0.241 : -0.302;
+    const ratio = v.creat / kappa;
+    const egfr = Math.round(
+      142 * Math.pow(Math.min(ratio,1), alpha) *
+      Math.pow(Math.max(ratio,1), -1.200) *
+      Math.pow(0.9938, v.edad) * (v.esFemenino ? 1.012 : 1)
+    );
+    const [lbl, cls] = egfr >= 90 ? ['G1 — Normal','badge-ok']
+      : egfr >= 60 ? ['G2 — Leve','badge-ok']
+      : egfr >= 45 ? ['G3a','badge-warn']
+      : egfr >= 30 ? ['G3b','badge-warn']
+      : egfr >= 15 ? ['G4 — Grave','badge-alert']
+      : ['G5 — Fallo renal','badge-alert'];
+    cards.push(badgeCard('eGFR (CKD-EPI)', egfr, ' ml/min', lbl, cls));
+  }
+
+  const wrap = document.getElementById('calcsWrap');
+  const grid = document.getElementById('calcsGrid');
+  if (cards.length > 0) {
+    grid.innerHTML = cards.join('');
+    wrap.style.display = 'block';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+// ─── COMPARTIR HCOP ──────────────────────────────────────────────
+function shareHCOP(method) {
+  const el = document.getElementById('hcopBox');
+  if (el.className.includes('empty') || el.className.includes('loading')) {
+    showToast('Generá el HCOP primero');
+    return;
+  }
+  const text = el.textContent;
+  if (method === 'whatsapp') {
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  } else {
+    window.location.href = 'mailto:?subject=Historia%20Cl%C3%ADnica&body=' + encodeURIComponent(text);
+  }
 }
 
 document.addEventListener('visibilitychange', async () => {
