@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<meta name="theme-color" content="#0f1923"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="CardioRec"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<title>CardioRec</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0f1923;
+  --surface: #162130;
+  --surface2: #1d2d3e;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.15);
+  --text: #e8edf2;
+  --text2: #8a9bb0;
+  --text3: #4d6070;
+  --accent: #00c896;
+  --accent-dim: rgba(0,200,150,0.12);
+  --accent-dim2: rgba(0,200,150,0.25);
+  --red: #e2534a;
+  --red-dim: rgba(226,83,74,0.12);
+  --amber: #f0a030;
+  --amber-dim: rgba(240,160,48,0.12);
+  --blue: #3d9be9;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; overscroll-behavior: none; }
+body { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── MOBILE (default) ── */
+.app { flex: 1; display: flex; flex-direction: column; max-width: 540px; margin: 0 auto; width: 100%; padding: 0 0 env(safe-area-inset-bottom); }
+
+.header { padding: 20px 20px 0; display: flex; align-items: flex-end; justify-content: space-between; }
+.logo { font-family: 'Fraunces', serif; font-weight: 300; font-size: 26px; color: var(--text); letter-spacing: -0.02em; }
+.logo span { color: var(--accent); font-style: italic; }
+.settings-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border2); background: var(--surface); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text2); font-size: 16px; transition: background 0.2s; }
+.settings-btn:hover { background: var(--surface2); }
+
+.mode-wrap { padding: 20px 20px 0; }
+.mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mode-tab { padding: 12px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; transition: all 0.2s; }
+.mode-tab.active { border-color: var(--accent); background: var(--accent-dim); }
+.mode-tab-icon { font-size: 20px; margin-bottom: 4px; }
+.mode-tab-label { font-size: 11px; color: var(--text2); letter-spacing: 0.05em; }
+.mode-tab.active .mode-tab-label { color: var(--accent); }
+
+.recorder-card { margin: 16px 20px 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+
+.viz-wrap { height: 64px; display: flex; align-items: center; justify-content: center; gap: 2px; margin-bottom: 16px; }
+.viz-bar { width: 3px; border-radius: 2px; background: var(--border2); transition: height 0.05s ease, background 0.3s; min-height: 4px; }
+.viz-bar.active { background: var(--accent); }
+
+.timer-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.timer { font-family: 'Fraunces', serif; font-size: 48px; font-weight: 300; letter-spacing: -0.03em; color: var(--text); }
+.status-pill { font-size: 11px; padding: 5px 12px; border-radius: 99px; letter-spacing: 0.08em; font-weight: 500; }
+.status-idle { background: var(--surface2); color: var(--text3); }
+.status-recording { background: var(--red-dim); color: var(--red); }
+.status-paused { background: var(--amber-dim); color: var(--amber); }
+.status-processing { background: var(--accent-dim); color: var(--accent); }
+
+.controls { display: flex; gap: 10px; }
+.btn-rec { flex: 1; height: 52px; border-radius: var(--radius-sm); border: none; font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; cursor: pointer; letter-spacing: 0.04em; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-main { background: var(--accent); color: #0f1923; }
+.btn-main:hover { filter: brightness(1.1); }
+.btn-main:active { transform: scale(0.97); }
+.btn-main:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; transform: none; filter: none; }
+.btn-sq { width: 52px; height: 52px; flex: none; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border); color: var(--text2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.btn-sq:hover { border-color: var(--border2); }
+.btn-sq:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-sq.danger { color: var(--red); border-color: rgba(226,83,74,0.3); }
+
+.wakelock-row { margin-top: 10px; display: flex; align-items: center; gap: 6px; }
+.wl-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); }
+.wl-dot.on { background: var(--accent); }
+.wl-label { font-size: 10px; color: var(--text3); letter-spacing: 0.05em; }
+
+.segments-wrap { margin: 12px 20px 0; }
+.seg-header { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; margin-bottom: 8px; }
+.seg-list { display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto; }
+.seg-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.seg-num { color: var(--text3); min-width: 20px; }
+.seg-text { flex: 1; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg-status { font-size: 10px; padding: 2px 8px; border-radius: 99px; }
+.seg-ok { background: var(--accent-dim); color: var(--accent); }
+.seg-pending { background: var(--amber-dim); color: var(--amber); }
+.seg-error { background: var(--red-dim); color: var(--red); }
+
+.section { margin: 12px 20px 0; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.section-label { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; }
+.section-actions { display: flex; gap: 6px; }
+.btn-small { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); cursor: pointer; font-family: 'DM Mono', monospace; transition: all 0.15s; }
+.btn-small:hover { border-color: var(--border2); color: var(--text); }
+.btn-small.primary { border-color: rgba(0,200,150,0.4); color: var(--accent); background: var(--accent-dim); }
+.btn-small.primary:hover { background: var(--accent-dim2); }
+.btn-small:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.text-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; font-size: 12px; line-height: 1.8; color: var(--text); min-height: 100px; max-height: 180px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+.text-box.empty { color: var(--text3); font-style: italic; }
+
+.hcop-box { background: var(--surface); border: 1px solid rgba(0,200,150,0.2); border-radius: var(--radius-sm); padding: 14px; font-size: 12px; line-height: 1.9; color: var(--text); min-height: 120px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+.hcop-box.empty { color: var(--text3); font-style: italic; border-color: var(--border); }
+.hcop-box.loading { color: var(--text2); animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: none; align-items: flex-end; }
+.overlay.open { display: flex; }
+.settings-panel { background: var(--surface); border-radius: var(--radius) var(--radius) 0 0; border-top: 1px solid var(--border); padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); width: 100%; max-height: 85vh; overflow-y: auto; animation: slideUp 0.25s ease; }
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.settings-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 300; margin-bottom: 20px; }
+.field { margin-bottom: 16px; }
+.field-label { font-size: 11px; color: var(--text2); letter-spacing: 0.06em; margin-bottom: 6px; display: block; }
+.field input, .field select, .field textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 12px; outline: none; transition: border-color 0.15s; }
+.field input:focus, .field textarea:focus { border-color: var(--border2); }
+.field select { appearance: none; }
+.field textarea { min-height: 100px; resize: vertical; line-height: 1.6; }
+.field select option { background: var(--surface2); }
+.settings-save { width: 100%; height: 48px; background: var(--accent); color: #0f1923; border: none; border-radius: var(--radius-sm); font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; cursor: pointer; margin-top: 8px; letter-spacing: 0.04em; }
+
+.spacer { height: 24px; }
+.toast { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: #0f1923; font-size: 12px; padding: 8px 20px; border-radius: 99px; opacity: 0; transition: all 0.3s; pointer-events: none; font-weight: 500; letter-spacing: 0.04em; z-index: 200; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── DESKTOP layout (≥900px) ── */
+@media (min-width: 900px) {
+  body { overflow: hidden; height: 100vh; }
+
+  .app {
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* Header full width */
+  .header { grid-column: 1 / -1; padding: 20px 24px 12px; }
+
+  /* Columna izquierda */
+  .col-left {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding-bottom: 20px;
+    border-right: 1px solid var(--border2);
+    min-height: 0;
+  }
+
+  /* Columna derecha */
+  .col-right {
+    grid-column: 2;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 24px 20px 20px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .mode-wrap    { padding: 12px 20px 0; }
+  .recorder-card { margin: 10px 20px 0; }
+  .segments-wrap { margin: 8px 20px 0; }
+  .section-transc { margin: 8px 20px 0; }
+  .section-transc .text-box { max-height: 150px; }
+  .spacer { display: none; }
+
+  /* HCOP derecha — ocupa todo el alto restante */
+  .section-hcop {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .section-hcop .section-header { margin-bottom: 8px; flex-shrink: 0; }
+  .section-hcop .hcop-box {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    font-size: 13px;
+    line-height: 2;
+    overflow-y: auto;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="logo">Cardio<span>Rec</span></div>
+    <div class="settings-btn" onclick="openSettings()">⚙</div>
+  </div>
+
+  <div class="col-left">
+  <div class="mode-wrap">
+    <div class="mode-tabs">
+      <div class="mode-tab active" id="tab-consulta" onclick="setMode('consulta')">
+        <div class="mode-tab-icon">🎙</div>
+        <div class="mode-tab-label">CONSULTA COMPLETA</div>
+      </div>
+      <div class="mode-tab" id="tab-dictado" onclick="setMode('dictado')">
+        <div class="mode-tab-icon">📋</div>
+        <div class="mode-tab-label">DICTADO POST-CONSULTA</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="recorder-card">
+    <div class="viz-wrap" id="vizWrap"></div>
+    <div class="timer-row">
+      <div class="timer" id="timer">00:00</div>
+      <div class="status-pill status-idle" id="statusPill">LISTO</div>
+    </div>
+    <div class="controls">
+      <button class="btn-rec btn-main" id="btnStart" onclick="startRec()">⬤ GRABAR</button>
+      <button class="btn-sq" id="btnPause" onclick="togglePause()" disabled title="Pausar">⏸</button>
+      <button class="btn-sq danger" id="btnStop" onclick="stopRec()" disabled title="Detener">⏹</button>
+    </div>
+    <div class="wakelock-row">
+      <div class="wl-dot" id="wlDot"></div>
+      <div class="wl-label" id="wlLabel">PANTALLA ACTIVA: INACTIVO</div>
+    </div>
+  </div>
+
+  <div class="segments-wrap" id="segmentsWrap" style="display:none">
+    <div class="seg-header">SEGMENTOS TRANSCRITOS</div>
+    <div class="seg-list" id="segList"></div>
+  </div>
+
+  <div class="section section-transc">
+    <div class="section-header">
+      <div class="section-label">TRANSCRIPCIÓN</div>
+      <div class="section-actions">
+        <button class="btn-small" onclick="copyText('transcBox')">copiar</button>
+        <button class="btn-small primary" id="btnAnalyze" onclick="analyzeWithClaude()" disabled>→ HCOP</button>
+      </div>
+    </div>
+    <div class="text-box empty" id="transcBox">La transcripción aparecerá aquí...</div>
+  </div>
+
+  </div><!-- /col-left -->
+  <div class="col-right">
+  <div class="section section-hcop">
+    <div class="section-header">
+      <div class="section-label">HCOP — GPT-4o</div>
+      <div class="section-actions">
+        <button class="btn-small" onclick="copyText('hcopBox')">copiar HC</button>
+        <button class="btn-small" onclick="clearHcop()">limpiar</button>
+      </div>
+    </div>
+    <div class="hcop-box empty" id="hcopBox">El HCOP aparecerá aquí...</div>
+  </div>
+
+  </div><!-- /col-right -->
+  <div class="spacer"></div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="settings-panel">
+    <div class="settings-title">Configuración</div>
+    <div class="field">
+      <label class="field-label">MÉTODO DE TRANSCRIPCIÓN</label>
+      <select id="cfgMethod" onchange="onMethodChange()">
+        <option value="whisper">Whisper (OpenAI) — mejor precisión</option>
+        <option value="native">Web Speech — gratuito, sin API</option>
+      </select>
+    </div>
+    <div class="field" id="openaiField">
+      <label class="field-label">API KEY — OPENAI (transcripción + HCOP)</label>
+      <input type="password" id="cfgOpenai" placeholder="sk-..."/>
+    </div>
+    <div class="field">
+      <label class="field-label">PROMPT — CONSULTA COMPLETA</label>
+      <textarea id="cfgPromptConsulta">Sos un asistente médico clínico especializado en cardiología y prevención cardiovascular. Transcribiste un dictado o consulta médica. Tu tarea es formatear el texto como historia clínica en primera persona del médico, sin viñetas, sin guiones, sin flechas, sin íconos, listo para copiar a la historia clínica.
+
+REGLAS CRÍTICAS:
+1. Conservá TODOS los valores numéricos exactamente como se dictan (troponinas, presiones, frecuencias, dosis, fracción de eyección, clase funcional).
+2. Conservá TODOS los nombres de medicamentos con sus dosis y combinaciones completas.
+3. Incluí siempre la clase funcional (CF) si se menciona, y cualquier síntoma con su contexto.
+4. No omitás ningún dato clínico mencionado, aunque parezca menor.
+5. Corregí errores fonéticos obvios (ej: "balsartan" → "valsartán", "amigadrona" → "amiodarona") pero sin cambiar valores ni dosis.
+6. La medicación va listada verticalmente, una por línea, sin viñetas ni guiones, solo el nombre con dosis.
+7. El plan terapéutico debe reflejar exactamente lo que se dictó, sin agregar inferencias ni frases genéricas.
+8. Secciones: incluir SOLO las que tienen contenido. Si no hay datos de una sección, omitirla completamente.
+9. Cada sección en una línea separada con su nombre en mayúsculas seguido de dos puntos.
+10. Secciones posibles (solo las que apliquen): MOTIVO DE CONSULTA, ANTECEDENTES PERSONALES, ANTECEDENTES HEREDOFAMILIARES, ANTECEDENTES PROPIOS DE LA MUJER, MEDICACIÓN ACTUAL, ALIMENTACIÓN, EJERCICIO, SUEÑO, TRABAJO, ASPECTOS PSICOSOCIALES, EXAMEN FÍSICO, ESTUDIOS COMPLEMENTARIOS, IMPRESIÓN DIAGNÓSTICA, PLAN TERAPÉUTICO.
+11. Texto fluido y profesional, primera persona del médico.</textarea>
+    </div>
+    <div class="field">
+      <label class="field-label">PROMPT — DICTADO POST-CONSULTA</label>
+      <textarea id="cfgPromptDictado">Sos un asistente médico clínico especializado en cardiología y prevención cardiovascular. El médico dictó un resumen libre de una consulta. Tu tarea es formatear el texto como historia clínica en primera persona del médico, sin viñetas, sin guiones, sin flechas, sin íconos, listo para copiar a la historia clínica.
+
+REGLAS CRÍTICAS:
+1. Conservá TODOS los valores numéricos exactamente como se dictan (troponinas, presiones, frecuencias, dosis, fracción de eyección, clase funcional).
+2. Conservá TODOS los nombres de medicamentos con sus dosis y combinaciones completas.
+3. Incluí siempre la clase funcional (CF) si se menciona, y cualquier síntoma con su contexto.
+4. No omitás ningún dato clínico mencionado, aunque parezca menor.
+5. Corregí errores fonéticos obvios (ej: "balsartan" → "valsartán", "amigadrona" → "amiodarona") pero sin cambiar valores ni dosis.
+6. La medicación va listada verticalmente, una por línea, sin viñetas ni guiones, solo el nombre con dosis.
+7. El plan terapéutico debe reflejar exactamente lo que se dictó, sin agregar inferencias ni frases genéricas.
+8. Secciones: incluir SOLO las que tienen contenido. Si no hay datos de una sección, omitirla completamente.
+9. Cada sección en una línea separada con su nombre en mayúsculas seguido de dos puntos.
+10. Secciones posibles (solo las que apliquen): MOTIVO DE CONSULTA, ANTECEDENTES PERSONALES, ANTECEDENTES HEREDOFAMILIARES, ANTECEDENTES PROPIOS DE LA MUJER, MEDICACIÓN ACTUAL, ALIMENTACIÓN, EJERCICIO, SUEÑO, TRABAJO, ASPECTOS PSICOSOCIALES, EXAMEN FÍSICO, ESTUDIOS COMPLEMENTARIOS, IMPRESIÓN DIAGNÓSTICA, PLAN TERAPÉUTICO.
+11. Texto fluido y profesional, primera persona del médico.</textarea>
+    </div>
+    <button class="settings-save" onclick="saveSettings()">Guardar configuración</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">Copiado</div>
+
+<script>
+const N_BARS = 28;
+const vizWrap = document.getElementById('vizWrap');
+let bars = [];
+for (let i = 0; i < N_BARS; i++) {
+  const b = document.createElement('div');
+  b.className = 'viz-bar';
+  b.style.height = '4px';
+  vizWrap.appendChild(b);
+  bars.push(b);
+}
+
+let mode = 'consulta';
+let isRecording = false;
+let isPaused = false;
+let seconds = 0;
+let timerInterval = null;
+let mediaRecorder = null;
+let stream = null;
+let audioChunks = [];
+let allChunks = [];
+let audioContext = null;
+let analyserNode = null;
+let animFrame = null;
+let wakeLock = null;
+let segmentInterval = null;
+let recognition = null;
+let transcriptionText = '';
+let segmentCount = 0;
+let segments = [];
+
+const SEGMENT_MS = 90000;
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('tab-consulta').className = 'mode-tab' + (m==='consulta'?' active':'');
+  document.getElementById('tab-dictado').className = 'mode-tab' + (m==='dictado'?' active':'');
+}
+
+function getSettings() {
+  return {
+    openai: localStorage.getItem('cr_openai') || '',
+    method: localStorage.getItem('cr_method') || 'whisper',
+    promptConsulta: localStorage.getItem('cr_prompt_consulta') || document.getElementById('cfgPromptConsulta').value,
+    promptDictado: localStorage.getItem('cr_prompt_dictado') || document.getElementById('cfgPromptDictado').value,
+  };
+}
+
+function openSettings() {
+  const s = getSettings();
+  document.getElementById('cfgOpenai').value = s.openai;
+  document.getElementById('cfgMethod').value = s.method;
+  document.getElementById('cfgPromptConsulta').value = s.promptConsulta;
+  document.getElementById('cfgPromptDictado').value = s.promptDictado;
+  onMethodChange();
+  document.getElementById('overlay').classList.add('open');
+}
+
+function onMethodChange() {
+  const m = document.getElementById('cfgMethod').value;
+  document.getElementById('openaiField').style.display = m === 'whisper' ? 'block' : 'none';
+}
+
+function saveSettings() {
+  localStorage.setItem('cr_openai', document.getElementById('cfgOpenai').value.trim());
+  localStorage.setItem('cr_method', document.getElementById('cfgMethod').value);
+  localStorage.setItem('cr_prompt_consulta', document.getElementById('cfgPromptConsulta').value);
+  localStorage.setItem('cr_prompt_dictado', document.getElementById('cfgPromptDictado').value);
+  document.getElementById('overlay').classList.remove('open');
+  showToast('Configuración guardada');
+}
+
+function overlayClick(e) {
+  if (e.target === document.getElementById('overlay')) {
+    document.getElementById('overlay').classList.remove('open');
+  }
+}
+
+function setStatus(text, cls) {
+  const p = document.getElementById('statusPill');
+  p.textContent = text;
+  p.className = 'status-pill status-' + cls;
+}
+
+function updateTimer() {
+  if (!isPaused) {
+    seconds++;
+    const m = String(Math.floor(seconds/60)).padStart(2,'0');
+    const s = String(seconds%60).padStart(2,'0');
+    document.getElementById('timer').textContent = m+':'+s;
+  }
+}
+
+async function acquireWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      document.getElementById('wlDot').className = 'wl-dot on';
+      document.getElementById('wlLabel').textContent = 'PANTALLA ACTIVA: ON';
+      wakeLock.addEventListener('release', () => {
+        document.getElementById('wlDot').className = 'wl-dot';
+        document.getElementById('wlLabel').textContent = 'PANTALLA ACTIVA: LIBERADO';
+      });
+    } catch(e) {
+      document.getElementById('wlLabel').textContent = 'PANTALLA ACTIVA: NO DISPONIBLE';
+    }
+  } else {
+    document.getElementById('wlLabel').textContent = 'PANTALLA ACTIVA: NO SOPORTADO';
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+  document.getElementById('wlDot').className = 'wl-dot';
+  document.getElementById('wlLabel').textContent = 'PANTALLA ACTIVA: INACTIVO';
+}
+
+function startLevelMeter() {
+  if (!stream) return;
+  audioContext = new AudioContext();
+  const src = audioContext.createMediaStreamSource(stream);
+  analyserNode = audioContext.createAnalyser();
+  analyserNode.fftSize = 64;
+  src.connect(analyserNode);
+  const buf = new Uint8Array(analyserNode.frequencyBinCount);
+  function draw() {
+    animFrame = requestAnimationFrame(draw);
+    analyserNode.getByteFrequencyData(buf);
+    const step = Math.floor(buf.length / N_BARS);
+    bars.forEach((b, i) => {
+      const val = buf[i * step] || 0;
+      const h = Math.max(4, Math.min(56, val * 0.55));
+      b.style.height = h + 'px';
+      b.className = 'viz-bar' + (val > 20 ? ' active' : '');
+    });
+  }
+  draw();
+}
+
+function stopLevelMeter() {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  if (audioContext) { audioContext.close(); audioContext = null; }
+  bars.forEach(b => { b.style.height = '4px'; b.className = 'viz-bar'; });
+}
+
+async function startRec() {
+  const settings = getSettings();
+  if (!settings.openai) { openSettings(); showToast('Configurá la API Key primero'); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, sampleRate: 16000 }, video: false });
+  } catch(e) { showToast('Sin acceso al micrófono'); return; }
+
+  transcriptionText = '';
+  segments = [];
+  segmentCount = 0;
+  allChunks = [];
+  audioChunks = [];
+  setTranscription('', true);
+  setHcop('', true);
+  document.getElementById('segmentsWrap').style.display = 'none';
+  document.getElementById('segList').innerHTML = '';
+  seconds = 0;
+  document.getElementById('timer').textContent = '00:00';
+  document.getElementById('btnAnalyze').disabled = true;
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('btnPause').disabled = false;
+  document.getElementById('btnStop').disabled = false;
+  isRecording = true;
+  isPaused = false;
+  setStatus('GRABANDO', 'recording');
+  timerInterval = setInterval(updateTimer, 1000);
+  await acquireWakeLock();
+  startLevelMeter();
+  if (settings.method === 'native') startNative();
+  else startWhisperRecorder();
+}
+
+function startWhisperRecorder() {
+  const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? { mimeType: 'audio/webm;codecs=opus' } : {};
+  mediaRecorder = new MediaRecorder(stream, opts);
+  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) { audioChunks.push(e.data); allChunks.push(e.data); } };
+  mediaRecorder.start(1000);
+  segmentInterval = setInterval(async () => {
+    if (!isPaused && audioChunks.length > 0) {
+      const blob = new Blob([...audioChunks], { type: mediaRecorder.mimeType || 'audio/webm' });
+      audioChunks = [];
+      segmentCount++;
+      await transcribeSegment(blob, segmentCount);
+    }
+  }, SEGMENT_MS);
+}
+
+function startNative() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('Web Speech no disponible. Usá Chrome.'); return; }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'es-AR';
+  recognition.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) transcriptionText += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    setTranscription(transcriptionText + (interim ? ' ' + interim : ''));
+    document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
+  };
+  recognition.onend = () => { if (isRecording && !isPaused) recognition.start(); };
+  recognition.start();
+  mediaRecorder = new MediaRecorder(stream, {});
+  mediaRecorder.ondataavailable = e => { if(e.data.size>0) allChunks.push(e.data); };
+  mediaRecorder.start(1000);
+}
+
+function togglePause() {
+  if (!isPaused) {
+    isPaused = true;
+    setStatus('PAUSADO', 'paused');
+    document.getElementById('btnPause').textContent = '▶';
+    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.pause();
+    if (recognition) recognition.stop();
+    releaseWakeLock();
+  } else {
+    isPaused = false;
+    setStatus('GRABANDO', 'recording');
+    document.getElementById('btnPause').textContent = '⏸';
+    if (mediaRecorder && mediaRecorder.state === 'paused') mediaRecorder.resume();
+    if (recognition) recognition.start();
+    acquireWakeLock();
+  }
+}
+
+async function stopRec() {
+  isRecording = false;
+  isPaused = false;
+  clearInterval(timerInterval);
+  clearInterval(segmentInterval);
+  releaseWakeLock();
+  stopLevelMeter();
+  setStatus('PROCESANDO', 'processing');
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnPause').disabled = true;
+  document.getElementById('btnStop').disabled = true;
+  document.getElementById('btnPause').textContent = '⏸';
+  if (recognition) { recognition.stop(); recognition = null; }
+  if (mediaRecorder && (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused')) {
+    await new Promise(r => { mediaRecorder.onstop = r; mediaRecorder.stop(); });
+  }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const settings = getSettings();
+  if (settings.method === 'whisper' && allChunks.length > 0) {
+    await new Promise(r => setTimeout(r, 500));
+    const fullBlob = new Blob(allChunks, { type: 'audio/webm' });
+    segmentCount++;
+    await transcribeSegment(fullBlob, segmentCount, true);
+  }
+  setStatus('LISTO', 'idle');
+  document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
+}
+
+function addSegmentUI(num) {
+  document.getElementById('segmentsWrap').style.display = 'block';
+  const div = document.createElement('div');
+  div.className = 'seg-item';
+  div.id = 'seg-' + num;
+  div.innerHTML = `<span class="seg-num">#${num}</span><span class="seg-text" id="seg-txt-${num}">Transcribiendo...</span><span class="seg-status seg-pending" id="seg-st-${num}">...</span>`;
+  document.getElementById('segList').appendChild(div);
+  document.getElementById('segList').scrollTop = 99999;
+}
+
+function updateSegmentUI(num, text, ok) {
+  const txt = document.getElementById('seg-txt-' + num);
+  const st = document.getElementById('seg-st-' + num);
+  if (txt) txt.textContent = text.slice(0,60) + (text.length>60?'…':'');
+  if (st) { st.textContent = ok ? 'OK' : 'ERROR'; st.className = 'seg-status ' + (ok?'seg-ok':'seg-error'); }
+}
+
+async function transcribeSegment(blob, num, isFinal) {
+  const settings = getSettings();
+  if (!settings.openai) { showToast('Falta API Key'); return; }
+  addSegmentUI(num);
+  try {
+    const fd = new FormData();
+    fd.append('file', blob, 'audio.webm');
+    fd.append('model', 'whisper-1');
+    fd.append('language', 'es');
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + settings.openai },
+      body: fd
+    });
+    const data = await res.json();
+    if (data.text) {
+      if (isFinal) transcriptionText = data.text;
+      else transcriptionText += (transcriptionText ? ' ' : '') + data.text;
+      setTranscription(transcriptionText);
+      updateSegmentUI(num, data.text, true);
+    } else {
+      updateSegmentUI(num, data.error?.message || 'error', false);
+    }
+  } catch(e) { updateSegmentUI(num, 'error de red', false); }
+}
+
+async function analyzeWithClaude() {
+  const settings = getSettings();
+  if (!settings.openai) { openSettings(); return; }
+  const text = transcriptionText.trim();
+  if (!text) return;
+  const prompt = mode === 'consulta' ? settings.promptConsulta : settings.promptDictado;
+  setHcop('Procesando con GPT-4o...', false, true);
+  document.getElementById('btnAnalyze').disabled = true;
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openai },
+      body: JSON.stringify({
+        model: 'gpt-4o', max_tokens: 2000, temperature: 0.2,
+        messages: [{ role: 'system', content: prompt }, { role: 'user', content: 'TRANSCRIPCIÓN:\n' + text }]
+      })
+    });
+    const data = await res.json();
+    if (data.choices?.[0]?.message?.content) setHcop(data.choices[0].message.content);
+    else setHcop('Error: ' + (data.error?.message || 'respuesta vacía'));
+  } catch(e) { setHcop('Error de conexión: ' + e.message); }
+  document.getElementById('btnAnalyze').disabled = false;
+}
+
+function setTranscription(text, empty) {
+  const el = document.getElementById('transcBox');
+  if (empty || !text) { el.textContent = 'La transcripción aparecerá aquí...'; el.className = 'text-box empty'; }
+  else { el.textContent = text; el.className = 'text-box'; el.scrollTop = el.scrollHeight; }
+}
+
+function setHcop(text, empty, loading) {
+  const el = document.getElementById('hcopBox');
+  if (empty || !text) { el.textContent = 'El HCOP aparecerá aquí...'; el.className = 'hcop-box empty'; }
+  else if (loading) { el.textContent = text; el.className = 'hcop-box loading'; }
+  else { el.textContent = text; el.className = 'hcop-box'; }
+}
+
+function clearHcop() { setHcop('', true); }
+
+function copyText(id) {
+  const el = document.getElementById(id);
+  if (el.className.includes('empty') || el.className.includes('loading')) return;
+  navigator.clipboard.writeText(el.textContent).then(() => showToast('Copiado al portapapeles'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && isRecording && !isPaused && !wakeLock) await acquireWakeLock();
+});
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
