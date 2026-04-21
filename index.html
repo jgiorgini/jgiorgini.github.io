@@ -48,7 +48,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
 /* MODE SELECTOR */
 .mode-wrap { padding: 20px 20px 0; }
-.mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mode-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .mode-tab { padding: 12px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; transition: all 0.2s; }
 .mode-tab.active { border-color: var(--accent); background: var(--accent-dim); }
 .mode-tab-icon { font-size: 20px; margin-bottom: 4px; }
@@ -162,13 +162,32 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 /* COPY TOAST */
 .toast { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: #0f1923; font-size: 12px; padding: 8px 20px; border-radius: 99px; opacity: 0; transition: all 0.3s; pointer-events: none; font-weight: 500; letter-spacing: 0.04em; z-index: 200; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* IMPORT PANEL */
+.import-panel { margin: 16px 20px 0; }
+.import-type-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.import-type-btn { padding: 10px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); letter-spacing: 0.06em; transition: all 0.2s; }
+.import-type-btn.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.import-type-btn:hover:not(.active) { border-color: var(--border2); color: var(--text); }
+.import-textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Mono', monospace; font-size: 12px; padding: 12px; resize: vertical; line-height: 1.6; outline: none; min-height: 130px; transition: border-color 0.15s; }
+.import-textarea:focus { border-color: var(--border2); }
+.import-textarea::placeholder { color: var(--text3); }
+.pdf-drop { border: 1px dashed var(--border2); border-radius: var(--radius-sm); padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface); }
+.pdf-drop:hover, .pdf-drop.has-file { border-color: var(--accent); background: var(--accent-dim); }
+.pdf-drop-icon { font-size: 28px; margin-bottom: 8px; }
+.pdf-drop-label { font-size: 11px; color: var(--text2); letter-spacing: 0.05em; }
+.pdf-drop.has-file .pdf-drop-label { color: var(--accent); }
+.import-out-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.btn-process { width: 100%; height: 50px; border-radius: var(--radius-sm); border: none; font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; cursor: pointer; letter-spacing: 0.04em; background: var(--accent); color: #0f1923; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-process:hover { filter: brightness(1.1); }
+.btn-process:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; filter: none; }
 </style>
 </head>
 <body>
 
 <div class="app">
   <div class="header">
-    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v7</span></div>
+    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v8</span></div>
     <div class="settings-btn" onclick="openSettings()">⚙</div>
   </div>
 
@@ -182,10 +201,54 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
         <div class="mode-tab-icon">📋</div>
         <div class="mode-tab-label">DICTADO POST-CONSULTA</div>
       </div>
+      <div class="mode-tab" id="tab-importar" onclick="setMode('importar')">
+        <div class="mode-tab-icon">📄</div>
+        <div class="mode-tab-label">IMPORTAR ESTUDIO</div>
+      </div>
     </div>
   </div>
 
-  <div class="recorder-card">
+  <!-- IMPORT PANEL -->
+  <div id="importPanel" class="import-panel" style="display:none">
+    <div class="import-type-row">
+      <button class="import-type-btn active" id="btnImportText" onclick="setImportType('text')">PEGAR TEXTO</button>
+      <button class="import-type-btn" id="btnImportFile" onclick="setImportType('file')">SUBIR PDF / IMAGEN</button>
+    </div>
+
+    <div id="importTextArea">
+      <textarea class="import-textarea" id="importText" placeholder="Pegá aquí el laboratorio, informe de eco, ECG, cualquier estudio médico..."></textarea>
+    </div>
+
+    <div id="importFileArea" style="display:none">
+      <input type="file" id="importFileInput" accept="application/pdf,image/jpeg,image/png,image/gif,image/webp" style="display:none" onchange="onImportFileSelected(event)"/>
+      <div class="pdf-drop" id="pdfDrop" onclick="document.getElementById('importFileInput').click()">
+        <div class="pdf-drop-icon">📂</div>
+        <div class="pdf-drop-label" id="pdfDropLabel">Tocá para seleccionar PDF o imagen</div>
+      </div>
+    </div>
+
+    <div class="import-out-row">
+      <button class="import-type-btn active" id="btnOutHclab" onclick="setImportOutput('hclab')">→ HCLAB</button>
+      <button class="import-type-btn" id="btnOutHcop" onclick="setImportOutput('hcop')">→ RESUMEN HCOP</button>
+    </div>
+
+    <button class="btn-process" id="btnProcess" onclick="processStudy()">→ PROCESAR CON CLAUDE</button>
+
+    <div class="section" style="margin-left:0;margin-right:0;margin-top:16px">
+      <div class="section-header">
+        <div class="section-label" id="importOutputLabel">RESULTADO — CLAUDE</div>
+        <div class="section-actions">
+          <button class="btn-small" onclick="shareImport('whatsapp')">WhatsApp</button>
+          <button class="btn-small" onclick="shareImport('mail')">mail</button>
+          <button class="btn-small" onclick="copyText('importOutput')">copiar</button>
+          <button class="btn-small" onclick="clearImportOutput()">limpiar</button>
+        </div>
+      </div>
+      <div class="hcop-box empty" id="importOutput">El resultado formateado aparecerá aquí...</div>
+    </div>
+  </div>
+
+  <div id="recorderCard" class="recorder-card">
     <div class="viz-wrap" id="vizWrap"></div>
 
     <div class="timer-row">
@@ -210,7 +273,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="seg-list" id="segList"></div>
   </div>
 
-  <div class="section">
+  <div class="section" id="transcSection">
     <div class="section-header">
       <div class="section-label">TRANSCRIPCIÓN</div>
       <div class="section-actions">
@@ -228,7 +291,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="calcs-grid" id="calcsGrid"></div>
   </div>
 
-  <div class="section">
+  <div class="section" id="hcopSection">
     <div class="section-header">
       <div class="section-label">HCOP — CLAUDE</div>
       <div class="section-actions">
@@ -363,6 +426,17 @@ function setMode(m) {
   mode = m;
   document.getElementById('tab-consulta').className = 'mode-tab' + (m==='consulta'?' active':'');
   document.getElementById('tab-dictado').className = 'mode-tab' + (m==='dictado'?' active':'');
+  document.getElementById('tab-importar').className = 'mode-tab' + (m==='importar'?' active':'');
+
+  const isImport = m === 'importar';
+  document.getElementById('recorderCard').style.display = isImport ? 'none' : 'block';
+  document.getElementById('importPanel').style.display = isImport ? 'block' : 'none';
+  document.getElementById('transcSection').style.display = isImport ? 'none' : 'block';
+  document.getElementById('hcopSection').style.display = isImport ? 'none' : 'block';
+  if (isImport) {
+    document.getElementById('segmentsWrap').style.display = 'none';
+    document.getElementById('calcsWrap').style.display = 'none';
+  }
 }
 
 function getSettings() {
@@ -949,6 +1023,186 @@ function shareHCOP(method) {
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
   } else {
     window.location.href = 'mailto:?subject=Historia%20Cl%C3%ADnica&body=' + encodeURIComponent(text);
+  }
+}
+
+// ─── IMPORTAR ESTUDIO ────────────────────────────────────────────
+let importInputType = 'text';  // 'text' | 'file'
+let importOutputType = 'hclab'; // 'hclab' | 'hcop'
+let importFileData = null;     // base64 del archivo
+let importFileMediaType = '';  // 'application/pdf' | 'image/jpeg' | etc.
+
+const PROMPT_IMPORT_HCLAB = `Extraé todos los valores de laboratorio de este estudio y formateálos como HCLAB siguiendo exactamente estas reglas:
+
+- Encabezado: LABORATORIO dd/mm/aaaa (si no hay fecha, escribí LABORATORIO s/f)
+- Todo en UNA SOLA LÍNEA por fecha, separado por comas, sin saltos de línea
+- Nombre abreviado + valor. Sin unidades. Sin rangos de referencia. Sin texto explicativo.
+- Excluir siempre: VCM, HCM, CHCM, RDW, GB totales y diferencial leucocitario completo (neutrófilos %, linfocitos %, etc.)
+- Valores fuera de rango en **negrita**. Sin flechas ni símbolos (↑↓)
+- Orden: Hb, Hto, Plaq → Glu, HbA1c → Urea, Creat, FG → Na, K → GOT, GPT, FAL, BT → ColT, LDL, HDL, TG → TSH, T4L → otros
+- Si hay múltiples fechas: una línea HCLAB por fecha
+
+Ejemplo correcto:
+LABORATORIO 21/04/2026: Hb 14.8, Hto 43, Plaq 210000, **Glu 126**, HbA1c 6.7, Urea 38, Creat 1.1, Na 140, K 4.2, **ColT 245**, **LDL 170**, HDL 52, TG 110, PCR 1.2
+
+Devolvé SOLO las líneas HCLAB, sin introducción, sin explicaciones, sin texto adicional.`;
+
+const PROMPT_IMPORT_HCOP = `Resumí este estudio médico en formato para historia clínica cardiológica.
+
+Reglas:
+- Primera persona del médico (ej: "Presento ecocardiograma del..." / "El laboratorio del...")
+- Sin viñetas, sin guiones, sin flechas, sin íconos
+- Texto fluido y profesional, listo para copiar a historia clínica electrónica
+- Conservá TODOS los valores numéricos exactamente como aparecen en el estudio
+- Solo incluí los hallazgos relevantes — omití los normales sin interés clínico
+
+Según tipo de estudio:
+- Ecocardiograma: FEVI, dimensiones de cavidades, función diastólica, valvulopatías, pericardio, presión pulmonar estimada
+- Laboratorio: usá formato HCLAB (una línea por fecha, valores anormales en negrita, sin unidades)
+- ECG: ritmo, FC, eje, trastornos de conducción, alteraciones del ST-T, intervalo QTc si aplica
+- Ergometría / eco estrés: FC basal y máxima, TA, METS, % FCMT, suficiencia del esfuerzo, síntomas, resultado isquémico
+- Otro estudio: extracto clínico relevante con valores
+
+Sin texto de relleno, sin conclusiones genéricas. Solo lo que tiene valor para la historia clínica.`;
+
+function setImportType(t) {
+  importInputType = t;
+  document.getElementById('importTextArea').style.display = t === 'text' ? 'block' : 'none';
+  document.getElementById('importFileArea').style.display = t === 'file' ? 'block' : 'none';
+  document.getElementById('btnImportText').classList.toggle('active', t === 'text');
+  document.getElementById('btnImportFile').classList.toggle('active', t === 'file');
+}
+
+function setImportOutput(t) {
+  importOutputType = t;
+  document.getElementById('btnOutHclab').classList.toggle('active', t === 'hclab');
+  document.getElementById('btnOutHcop').classList.toggle('active', t === 'hcop');
+  document.getElementById('importOutputLabel').textContent = t === 'hclab' ? 'HCLAB — CLAUDE' : 'RESUMEN HCOP — CLAUDE';
+}
+
+function onImportFileSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const drop = document.getElementById('pdfDrop');
+  const label = document.getElementById('pdfDropLabel');
+  label.textContent = file.name;
+  drop.classList.add('has-file');
+  importFileMediaType = file.type || 'application/pdf';
+  const reader = new FileReader();
+  reader.onload = e => {
+    importFileData = e.target.result.split(',')[1]; // base64 sin el prefijo data:...
+  };
+  reader.readAsDataURL(file);
+}
+
+async function processStudy() {
+  const settings = getSettings();
+  if (!settings.anthropic) { openSettings(); showToast('Configurá la API Key de Claude'); return; }
+
+  const btn = document.getElementById('btnProcess');
+  const outEl = document.getElementById('importOutput');
+  btn.disabled = true;
+  outEl.textContent = 'Procesando con Claude...';
+  outEl.className = 'hcop-box loading';
+
+  const promptText = importOutputType === 'hclab' ? PROMPT_IMPORT_HCLAB : PROMPT_IMPORT_HCOP;
+
+  try {
+    let messageContent;
+
+    if (importInputType === 'file') {
+      if (!importFileData) {
+        showToast('Seleccioná un archivo primero');
+        btn.disabled = false;
+        outEl.textContent = 'El resultado formateado aparecerá aquí...';
+        outEl.className = 'hcop-box empty';
+        return;
+      }
+      const isImage = importFileMediaType.startsWith('image/');
+      if (isImage) {
+        messageContent = [
+          { type: 'image', source: { type: 'base64', media_type: importFileMediaType, data: importFileData } },
+          { type: 'text', text: promptText }
+        ];
+      } else {
+        // PDF
+        messageContent = [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: importFileData } },
+          { type: 'text', text: promptText }
+        ];
+      }
+    } else {
+      const text = document.getElementById('importText').value.trim();
+      if (!text) {
+        showToast('Pegá el texto primero');
+        btn.disabled = false;
+        outEl.textContent = 'El resultado formateado aparecerá aquí...';
+        outEl.className = 'hcop-box empty';
+        return;
+      }
+      messageContent = promptText + '\n\nESTUDIO:\n' + text;
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': settings.anthropic,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    };
+    // Beta PDF support
+    if (importInputType === 'file' && !importFileMediaType.startsWith('image/')) {
+      headers['anthropic-beta'] = 'pdfs-2024-09-25';
+    }
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: messageContent }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
+    }
+    const data = await res.json();
+    if (data.content?.[0]?.text) {
+      outEl.textContent = data.content[0].text;
+      outEl.className = 'hcop-box';
+    } else {
+      throw new Error(data.error?.message || 'respuesta vacía');
+    }
+  } catch(e) {
+    outEl.textContent = 'Error: ' + e.message;
+    outEl.className = 'hcop-box';
+  }
+  btn.disabled = false;
+}
+
+function clearImportOutput() {
+  const el = document.getElementById('importOutput');
+  el.textContent = 'El resultado formateado aparecerá aquí...';
+  el.className = 'hcop-box empty';
+  // Resetear file
+  importFileData = null;
+  importFileMediaType = '';
+  const drop = document.getElementById('pdfDrop');
+  if (drop) { drop.classList.remove('has-file'); document.getElementById('pdfDropLabel').textContent = 'Tocá para seleccionar PDF o imagen'; }
+  const inp = document.getElementById('importFileInput');
+  if (inp) inp.value = '';
+}
+
+function shareImport(method) {
+  const el = document.getElementById('importOutput');
+  if (el.classList.contains('empty') || el.classList.contains('loading')) { showToast('Procesá el estudio primero'); return; }
+  const text = el.textContent;
+  if (method === 'whatsapp') {
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  } else {
+    window.location.href = 'mailto:?subject=Estudio%20M%C3%A9dico&body=' + encodeURIComponent(text);
   }
 }
 
