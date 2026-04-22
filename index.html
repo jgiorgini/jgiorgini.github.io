@@ -182,6 +182,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 .btn-process:hover { filter: brightness(1.1); }
 .btn-process:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; filter: none; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
@@ -1133,6 +1134,26 @@ function removeImportFile(i) {
   updateFileListUI();
 }
 
+async function extractPdfText(base64Data) {
+  try {
+    if (typeof pdfjsLib === 'undefined') return null;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const binary = atob(base64Data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(item => item.str).join(' ') + '\n';
+    }
+    return text.trim();
+  } catch(e) {
+    return null;
+  }
+}
+
 function onImportFileSelected(event) {
   const files = Array.from(event.target.files);
   if (!files.length) return;
@@ -1140,8 +1161,13 @@ function onImportFileSelected(event) {
   files.forEach(file => {
     const mediaType = file.type || 'application/pdf';
     const reader = new FileReader();
-    reader.onload = e => {
-      importFiles.push({ data: e.target.result.split(',')[1], mediaType, name: file.name });
+    reader.onload = async e => {
+      const base64 = e.target.result.split(',')[1];
+      const entry = { data: base64, mediaType, name: file.name, text: null };
+      if (mediaType === 'application/pdf') {
+        entry.text = await extractPdfText(base64);
+      }
+      importFiles.push(entry);
       pending--;
       if (pending === 0) updateFileListUI();
     };
@@ -1174,15 +1200,24 @@ async function processStudy() {
         return;
       }
       messageContent = [];
+      const pdfTexts = [];
       for (const f of importFiles) {
         if (f.mediaType.startsWith('image/')) {
           messageContent.push({ type: 'image_url', image_url: { url: 'data:' + f.mediaType + ';base64,' + f.data } });
         } else {
-          // PDF
-          messageContent.push({ type: 'file', file: { filename: f.name, file_data: 'data:application/pdf;base64,' + f.data } });
+          // PDF: enviar texto extraído por PDF.js
+          if (f.text) {
+            pdfTexts.push('=== ' + f.name + ' ===\n' + f.text);
+          } else {
+            pdfTexts.push('=== ' + f.name + ' === (no se pudo extraer texto)');
+          }
         }
       }
-      messageContent.push({ type: 'text', text: promptText });
+      // Texto de PDFs va al final del prompt como texto plano
+      const fullPrompt = pdfTexts.length
+        ? promptText + '\n\nDOCUMENTO(S):\n' + pdfTexts.join('\n\n')
+        : promptText;
+      messageContent.push({ type: 'text', text: fullPrompt });
     } else {
       const text = document.getElementById('importText').value.trim();
       if (!text) {
