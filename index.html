@@ -1065,8 +1065,12 @@ LABORATORIO → FORMATO HCLAB:
 - "s/f" se usa ÚNICAMENTE cuando falta la FECHA del laboratorio. NUNCA para valores de parámetros.
 - Si un parámetro no tiene valor en el documento: omitirlo directamente, no incluirlo con s/f
 - Sin unidades, sin rangos de referencia, sin texto explicativo
+- FECHA: usar la fecha de toma de muestra o ingreso, NO la fecha de generación/emisión del informe
 - Excluir: VCM, HCM, CHCM, RDW, fórmula leucocitaria (neutrófilos%, linfocitos%, monocitos%, etc.)
-- Orden: Hto, Hb, Plaq → Glu, HbA1c → Urea, Creat, eGFR → Uricemia → Na, K → ColT, LDL, HDL, TG, noHDL → GOT, GPT, FAL, BT, BD, BI → Prot, Alb → TSH, T4L → otros (PSA, ferritina, etc.)
+- Abreviaturas obligatorias: Uricemia → AU, Eritrosedimentación/ERS → ERS, Creatinina → Creat, Glucemia → Glu, Hemoglobina → Hb, Hematocrito → Hto, Plaquetas → Plaq, Bilirrubina total → BT, Bilirrubina directa → BD, Bilirrubina indirecta → BI, Proteínas totales → Prot, Albúmina → Alb, Fosfatasa alcalina → FAL
+- Incluir ERS si figura en el documento (va en "otros" al final)
+- Incluir BI (bilirrubina indirecta) si figura, junto a BT y BD
+- Orden: Hto, Hb, Plaq → Glu, HbA1c → Urea, Creat, eGFR → AU → Na, K → ColT, LDL, HDL, TG, noHDL → GOT, GPT, FAL, BT, BD, BI → Prot, Alb → TSH, T4L → otros (PSA, ERS, ferritina, etc.)
 - Si hay múltiples fechas REALES en el documento: una línea HCLAB por fecha. No inventar fechas.
 - Ejemplo: LABORATORIO 07/04/2025: Hto 43.7, Hb 15.5, Plaq 187, Glu 103, Urea 38, Creat 1.09, eGFR 74, AU 6.25, ColT 169, LDL 87, HDL 55, TG 133, noHDL 114, GOT 16, GPT 20, FAL 65, BT 0.54, BD 0.22, Prot 6.6, Alb 4.62, TSH 3.44, T4L 1.30, PSA 8.11, PSA libre 1.27
 
