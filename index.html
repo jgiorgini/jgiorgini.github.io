@@ -1074,16 +1074,18 @@ Ejemplo: ERGOMETRÍA 14/10/2025: FC 75→147, TA basal s/d→150/80, protocolo B
 
 ECOCARDIOGRAMA:
 - NOMBRE DEL ESTUDIO EN MAYÚSCULAS (dd/mm/aaaa)
-- Incluir: FEVI, dimensiones de cavidades (VI, AI al menos), función diastólica, valvulopatías, presión pulmonar estimada, TAPSE si figura, pericardio
-- Para cualquier valvulopatía: incluir siempre grado, gradientes, área valvular, área indexada, velocidad pico
+- Incluir: FEVI, dimensiones de cavidades (VI, AI al menos), función diastólica, valvulopatías (TODAS, incluso leves), presión pulmonar estimada, TAPSE si figura, pericardio
+- Mencionar CUALQUIER valvulopatía descrita aunque sea leve (ej: IM leve, IT leve, esclerosis aórtica) — incluir grado, gradientes si figuran, área si figura
 - Texto fluido, sin viñetas
 
 DOPPLER VASCULAR (carotídeo, renal, miembros, etc.):
 - NOMBRE DEL ESTUDIO EN MAYÚSCULAS (dd/mm/aaaa)
-- Reportar SIEMPRE: presencia/ausencia de ateromatosis, engrosamiento íntima-media, placas (ubicación exacta, tamaño si figura, grado de estenosis, repercusión hemodinámica)
+- Leer CUIDADOSAMENTE el cuerpo completo del informe, no solo la conclusión
+- Reportar SIEMPRE los hallazgos anatómicos del cuerpo del informe: engrosamiento íntima-media (ubicación), placas (ubicación exacta, lado, tamaño si figura, grado de estenosis, repercusión hemodinámica)
 - NUNCA omitir placas aunque sean no obstructivas — son hallazgo de alto riesgo cardiovascular
-- Velocidades solo si son anormales
-- Flujo vertebral: mencionar solo si hay alteración
+- NUNCA afirmar ausencia de algo que sí está descrito en el cuerpo del informe
+- Si hay placa descrita en el cuerpo pero la conclusión dice "normal": reportar la placa de todos modos
+- Velocidades solo si son anormales. Flujo vertebral: solo si hay alteración
 
 ECG:
 - ECG (dd/mm/aaaa): ritmo, FC, PR, QRS, QTc. Hallazgos patológicos si existen; si es normal, escribir "sin alteraciones significativas"
@@ -1202,7 +1204,10 @@ async function processStudy() {
       body: JSON.stringify({
         model: 'gpt-4o',
         max_tokens: 2000,
-        messages: [{ role: 'user', content: messageContent }]
+        messages: [
+          { role: 'system', content: 'Sos un extractor fiel de datos de informes médicos. Tu prioridad absoluta es reproducir los hallazgos EXACTAMENTE como aparecen en el documento. NUNCA inviertas un hallazgo. NUNCA afirmes ausencia de algo que esté descripto en el cuerpo del informe. Los hallazgos anatómicos del cuerpo del informe tienen precedencia sobre la conclusión final. Si hay discrepancia entre cuerpo e informe, reportá lo que dice el cuerpo.' },
+          { role: 'user', content: messageContent }
+        ]
       })
     });
 
