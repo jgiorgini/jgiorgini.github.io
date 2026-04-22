@@ -211,7 +211,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
   <!-- IMPORT PANEL -->
   <div id="importPanel" class="import-panel" style="display:none">
     <div class="import-type-row">
-      <button class="import-type-btn active" id="btnImportText" onclick="setImportType('text')">PEGAR TEXTO</button>
+      <button class="import-type-btn active" id="btnImportText" onclick="setImportType('text')">PEGAR TEXTO / CAPTURA</button>
       <button class="import-type-btn" id="btnImportFile" onclick="setImportType('file')">SUBIR PDF / IMAGEN</button>
     </div>
 
@@ -1054,6 +1054,11 @@ Si es IMAGEN u OTRO ESTUDIO (eco, doppler, RMN, TAC, rx, holter, ECG, ergometrí
 - Si no hay hallazgos anormales, escribir solo la conclusión
 - Omitir todo lo que sea "dentro de límites normales", "sin alteraciones", "conservado", "normal"
 
+Para VALVULOPATÍAS (cualquier válvula): incluir siempre si están presentes:
+gradiente medio y máximo, área valvular, área indexada a superficie corporal (si figura),
+velocidad sistólica pico, grado de estenosis o insuficiencia, mecanismo si se describe.
+No omitir estos datos aunque sean normales si hay diagnóstico valvular.
+
 EJEMPLOS:
 Laboratorio normal: LABORATORIO 17/11/2025: dentro de límites normales
 Lab con anormales: LABORATORIO 17/11/2025: Glu 126, ColT 245, LDL 170
@@ -1204,14 +1209,25 @@ document.addEventListener('paste', (e) => {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        importFileData = ev.target.result.split(',')[1];
-        importFileMediaType = item.type;
-        // Cambiar a modo file y mostrar nombre
-        setImportType('file');
-        const label = document.getElementById('pdfDropLabel');
-        label.textContent = 'Captura pegada (' + item.type.replace('image/','') + ')';
-        document.getElementById('pdfDrop').classList.add('has-file');
-        showToast('Imagen pegada — presioná Procesar');
+        // Convertir a JPEG via canvas — OpenAI vision no acepta PNG inline
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1920;
+          let w = img.width, h = img.height;
+          if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+          if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const jpegUrl = canvas.toDataURL('image/jpeg', 0.92);
+          importFileData = jpegUrl.split(',')[1];
+          importFileMediaType = 'image/jpeg';
+          setImportType('file');
+          document.getElementById('pdfDropLabel').textContent = 'Captura pegada (' + w + '×' + h + ' px)';
+          document.getElementById('pdfDrop').classList.add('has-file');
+          showToast('Imagen pegada — presioná Procesar');
+        };
+        img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
       return;
