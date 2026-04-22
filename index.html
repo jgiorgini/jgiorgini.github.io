@@ -187,7 +187,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
 <div class="app">
   <div class="header">
-    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v9</span></div>
+    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v10</span></div>
     <div class="settings-btn" onclick="openSettings()">⚙</div>
   </div>
 
@@ -216,7 +216,10 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     </div>
 
     <div id="importTextArea">
-      <textarea class="import-textarea" id="importText" placeholder="Pegá aquí el laboratorio, informe de eco, ECG, cualquier estudio médico..."></textarea>
+      <div style="position:relative">
+        <textarea class="import-textarea" id="importText" placeholder="Pegá aquí el texto del estudio, o pegá una captura de pantalla (Ctrl+V / ⌘V)..."></textarea>
+        <button onclick="clearImportText()" style="position:absolute;top:6px;right:6px;background:transparent;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:2px 7px;border-radius:4px;cursor:pointer;font-family:inherit">limpiar</button>
+      </div>
     </div>
 
     <div id="importFileArea" style="display:none">
@@ -225,11 +228,6 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
         <div class="pdf-drop-icon">📂</div>
         <div class="pdf-drop-label" id="pdfDropLabel">Tocá para seleccionar PDF o imagen</div>
       </div>
-    </div>
-
-    <div class="import-out-row">
-      <button class="import-type-btn active" id="btnOutHclab" onclick="setImportOutput('hclab')">→ HCLAB</button>
-      <button class="import-type-btn" id="btnOutHcop" onclick="setImportOutput('hcop')">→ RESUMEN HCOP</button>
     </div>
 
     <button class="btn-process" id="btnProcess" onclick="processStudy()">→ PROCESAR CON GPT-4o</button>
@@ -1028,42 +1026,40 @@ function shareHCOP(method) {
 
 // ─── IMPORTAR ESTUDIO ────────────────────────────────────────────
 let importInputType = 'text';  // 'text' | 'file'
-let importOutputType = 'hclab'; // 'hclab' | 'hcop'
 let importFileData = null;     // base64 del archivo
 let importFileMediaType = '';  // 'application/pdf' | 'image/jpeg' | etc.
 
-const PROMPT_IMPORT_HCLAB = `Extraé todos los valores de laboratorio de este estudio y formateálos como HCLAB siguiendo exactamente estas reglas:
+const PROMPT_IMPORT = `Analizá este informe médico y generá un resumen conciso para historia clínica.
 
-- Encabezado: LABORATORIO dd/mm/aaaa (si no hay fecha, escribí LABORATORIO s/f)
-- Todo en UNA SOLA LÍNEA por fecha, separado por comas, sin saltos de línea
-- Nombre abreviado + valor. Sin unidades. Sin rangos de referencia. Sin texto explicativo.
-- Excluir siempre: VCM, HCM, CHCM, RDW, GB totales y diferencial leucocitario completo (neutrófilos %, linfocitos %, etc.)
-- Valores fuera de rango en **negrita**. Sin flechas ni símbolos (↑↓)
-- Orden: Hb, Hto, Plaq → Glu, HbA1c → Urea, Creat, FG → Na, K → GOT, GPT, FAL, BT → ColT, LDL, HDL, TG → TSH, T4L → otros
-- Si hay múltiples fechas: una línea HCLAB por fecha
-
-Ejemplo correcto:
-LABORATORIO 21/04/2026: Hb 14.8, Hto 43, Plaq 210000, **Glu 126**, HbA1c 6.7, Urea 38, Creat 1.1, Na 140, K 4.2, **ColT 245**, **LDL 170**, HDL 52, TG 110, PCR 1.2
-
-Devolvé SOLO las líneas HCLAB, sin introducción, sin explicaciones, sin texto adicional.`;
-
-const PROMPT_IMPORT_HCOP = `Resumí este estudio médico en formato para historia clínica cardiológica.
-
-Reglas:
-- Primera persona del médico (ej: "Presento ecocardiograma del..." / "El laboratorio del...")
+REGLAS GENERALES:
+- Identificá el tipo de estudio y la fecha desde el encabezado del informe (ej: "Ecografía con Doppler Renal", "Laboratorio", "ECG", "Ergometría", etc.)
+- NO escribas en primera persona como si fueras el médico que realizó el estudio. No uses "Realicé", "Observé", "Se practicó", "Presentamos", etc.
 - Sin viñetas, sin guiones, sin flechas, sin íconos
-- Texto fluido y profesional, listo para copiar a historia clínica electrónica
-- Conservá TODOS los valores numéricos exactamente como aparecen en el estudio
-- Solo incluí los hallazgos relevantes — omití los normales sin interés clínico
+- Texto fluido y profesional, listo para copiar a historia clínica
 
-Según tipo de estudio:
-- Ecocardiograma: FEVI, dimensiones de cavidades, función diastólica, valvulopatías, pericardio, presión pulmonar estimada
-- Laboratorio: usá formato HCLAB (una línea por fecha, valores anormales en negrita, sin unidades)
-- ECG: ritmo, FC, eje, trastornos de conducción, alteraciones del ST-T, intervalo QTc si aplica
-- Ergometría / eco estrés: FC basal y máxima, TA, METS, % FCMT, suficiencia del esfuerzo, síntomas, resultado isquémico
-- Otro estudio: extracto clínico relevante con valores
+FORMATO SEGÚN TIPO:
 
-Sin texto de relleno, sin conclusiones genéricas. Solo lo que tiene valor para la historia clínica.`;
+Si es LABORATORIO:
+- Formato HCLAB: encabezado LABORATORIO dd/mm/aaaa, todo en una sola línea separada por comas
+- Incluir solo valores fuera de rango. Si todos son normales, escribir "LABORATORIO dd/mm/aaaa: dentro de límites normales"
+- Sin unidades, sin rangos de referencia
+- Orden: Hb, Hto, Plaq → Glu, HbA1c → Urea, Creat, FG → Na, K → GOT, GPT, FAL, BT → ColT, LDL, HDL, TG → TSH → otros
+- Excluir: VCM, HCM, CHCM, RDW, diferencial leucocitario
+- Si hay múltiples fechas: una línea por fecha
+
+Si es IMAGEN u OTRO ESTUDIO (eco, doppler, RMN, TAC, rx, holter, ECG, ergometría, etc.):
+- Primera línea: NOMBRE DEL ESTUDIO en mayúsculas (dd/mm/aaaa)
+- Luego: solo hallazgos ANORMALES con sus valores numéricos exactos
+- Al final: la conclusión del informe, textual o resumida
+- Si no hay hallazgos anormales, escribir solo la conclusión
+- Omitir todo lo que sea "dentro de límites normales", "sin alteraciones", "conservado", "normal"
+
+EJEMPLOS:
+Laboratorio normal: LABORATORIO 17/11/2025: dentro de límites normales
+Lab con anormales: LABORATORIO 17/11/2025: Glu 126, ColT 245, LDL 170
+Imagen: ECOGRAFÍA CON DOPPLER RENAL (17/11/2025): Quistes corticales simples bilaterales, el mayor en riñón derecho 8,3 mm. Conclusión: Doppler color dentro de límites normales.
+
+Devolvé SOLO el resumen, sin introducción, sin aclaraciones, sin texto adicional.`;
 
 function setImportType(t) {
   importInputType = t;
@@ -1073,11 +1069,8 @@ function setImportType(t) {
   document.getElementById('btnImportFile').classList.toggle('active', t === 'file');
 }
 
-function setImportOutput(t) {
-  importOutputType = t;
-  document.getElementById('btnOutHclab').classList.toggle('active', t === 'hclab');
-  document.getElementById('btnOutHcop').classList.toggle('active', t === 'hcop');
-  document.getElementById('importOutputLabel').textContent = t === 'hclab' ? 'HCLAB — GPT-4o' : 'RESUMEN HCOP — GPT-4o';
+function clearImportText() {
+  document.getElementById('importText').value = '';
 }
 
 function onImportFileSelected(event) {
@@ -1105,7 +1098,7 @@ async function processStudy() {
   outEl.textContent = 'Procesando con GPT-4o...';
   outEl.className = 'hcop-box loading';
 
-  const promptText = importOutputType === 'hclab' ? PROMPT_IMPORT_HCLAB : PROMPT_IMPORT_HCOP;
+  const promptText = PROMPT_IMPORT;
 
   try {
     let messageContent;
@@ -1198,6 +1191,33 @@ function shareImport(method) {
     window.open('https://mail.google.com/mail/?view=cm&su=' + encodeURIComponent('Estudio Médico') + '&body=' + encodeURIComponent(text), '_blank');
   }
 }
+
+// ─── PASTE DE CAPTURAS DE PANTALLA ──────────────────────────────
+document.addEventListener('paste', (e) => {
+  if (mode !== 'importar') return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        importFileData = ev.target.result.split(',')[1];
+        importFileMediaType = item.type;
+        // Cambiar a modo file y mostrar nombre
+        setImportType('file');
+        const label = document.getElementById('pdfDropLabel');
+        label.textContent = 'Captura pegada (' + item.type.replace('image/','') + ')';
+        document.getElementById('pdfDrop').classList.add('has-file');
+        showToast('Imagen pegada — presioná Procesar');
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+  }
+});
 
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && isRecording && !isPaused && !wakeLock) {
