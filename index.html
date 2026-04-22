@@ -182,13 +182,12 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 .btn-process:hover { filter: brightness(1.1); }
 .btn-process:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; filter: none; }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
 <div class="app">
   <div class="header">
-    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v11</span></div>
+    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v12</span></div>
     <div class="settings-btn" onclick="openSettings()">⚙</div>
   </div>
 
@@ -1134,26 +1133,6 @@ function removeImportFile(i) {
   updateFileListUI();
 }
 
-async function extractPdfText(base64Data) {
-  try {
-    if (typeof pdfjsLib === 'undefined') return null;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const binary = atob(base64Data);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-    let text = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      text += content.items.map(item => item.str).join(' ') + '\n';
-    }
-    return text.trim();
-  } catch(e) {
-    return null;
-  }
-}
-
 function onImportFileSelected(event) {
   const files = Array.from(event.target.files);
   if (!files.length) return;
@@ -1161,19 +1140,33 @@ function onImportFileSelected(event) {
   files.forEach(file => {
     const mediaType = file.type || 'application/pdf';
     const reader = new FileReader();
-    reader.onload = async e => {
+    reader.onload = e => {
       const base64 = e.target.result.split(',')[1];
-      const entry = { data: base64, mediaType, name: file.name, text: null };
-      if (mediaType === 'application/pdf') {
-        entry.text = await extractPdfText(base64);
-      }
-      importFiles.push(entry);
+      importFiles.push({ data: base64, mediaType, name: file.name });
       pending--;
       if (pending === 0) updateFileListUI();
     };
     reader.readAsDataURL(file);
   });
   event.target.value = '';
+}
+
+async function uploadToOpenAI(base64Data, filename, mediaType, apiKey) {
+  const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: mediaType });
+  const form = new FormData();
+  form.append('file', blob, filename);
+  form.append('purpose', 'user_data');
+  const res = await fetch('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + apiKey },
+    body: form
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Upload ${res.status}: ${err.error?.message || res.statusText}`);
+  }
+  return (await res.json()).id;
 }
 
 async function processStudy() {
@@ -1191,6 +1184,8 @@ async function processStudy() {
   try {
     let messageContent;
 
+    const systemMsg = 'Sos un extractor fiel de datos de informes médicos. Tu prioridad absoluta es reproducir los hallazgos EXACTAMENTE como aparecen en el documento. NUNCA inviertas un hallazgo. NUNCA afirmes ausencia de algo que esté descripto en el cuerpo del informe. Los hallazgos anatómicos del cuerpo del informe tienen precedencia sobre la conclusión final.';
+
     if (importInputType === 'file') {
       if (!importFiles.length) {
         showToast('Seleccioná un archivo primero');
@@ -1199,26 +1194,61 @@ async function processStudy() {
         outEl.className = 'hcop-box empty';
         return;
       }
-      messageContent = [];
-      const pdfTexts = [];
-      for (const f of importFiles) {
-        if (f.mediaType.startsWith('image/')) {
-          messageContent.push({ type: 'image_url', image_url: { url: 'data:' + f.mediaType + ';base64,' + f.data } });
-        } else {
-          // PDF: enviar texto extraído por PDF.js
-          if (f.text) {
-            pdfTexts.push('=== ' + f.name + ' ===\n' + f.text);
+
+      const hasPdf = importFiles.some(f => !f.mediaType.startsWith('image/'));
+
+      if (hasPdf) {
+        // PDFs → Files API + Responses API
+        const content = [];
+        for (const f of importFiles) {
+          outEl.textContent = 'Subiendo ' + f.name + '...';
+          const fileId = await uploadToOpenAI(f.data, f.name, f.mediaType, settings.openai);
+          if (f.mediaType.startsWith('image/')) {
+            content.push({ type: 'input_image', file_id: fileId });
           } else {
-            pdfTexts.push('=== ' + f.name + ' === (no se pudo extraer texto)');
+            content.push({ type: 'input_file', file_id: fileId });
           }
         }
+        content.push({ type: 'input_text', text: promptText });
+        outEl.textContent = 'Procesando con GPT-4o...';
+        const res = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openai },
+          body: JSON.stringify({ model: 'gpt-4o', instructions: systemMsg, input: [{ role: 'user', content }] })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
+        }
+        const data = await res.json();
+        const text = data.output_text || data.output?.[0]?.content?.[0]?.text;
+        if (text) { outEl.textContent = stripAsterisks(text); outEl.className = 'hcop-box'; }
+        else throw new Error('respuesta vacía');
+
+      } else {
+        // Solo imágenes → chat completions con image_url
+        const content = importFiles.map(f => ({
+          type: 'image_url', image_url: { url: 'data:' + f.mediaType + ';base64,' + f.data }
+        }));
+        content.push({ type: 'text', text: promptText });
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openai },
+          body: JSON.stringify({ model: 'gpt-4o', max_tokens: 2000,
+            messages: [{ role: 'system', content: systemMsg }, { role: 'user', content }] })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
+        }
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content;
+        if (text) { outEl.textContent = stripAsterisks(text); outEl.className = 'hcop-box'; }
+        else throw new Error('respuesta vacía');
       }
-      // Texto de PDFs va al final del prompt como texto plano
-      const fullPrompt = pdfTexts.length
-        ? promptText + '\n\nDOCUMENTO(S):\n' + pdfTexts.join('\n\n')
-        : promptText;
-      messageContent.push({ type: 'text', text: fullPrompt });
+
     } else {
+      // Texto pegado → chat completions
       const text = document.getElementById('importText').value.trim();
       if (!text) {
         showToast('Pegá el texto primero');
@@ -1227,35 +1257,21 @@ async function processStudy() {
         outEl.className = 'hcop-box empty';
         return;
       }
-      messageContent = promptText + '\n\nESTUDIO:\n' + text;
-    }
-
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + settings.openai
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 2000,
-        messages: [
-          { role: 'system', content: 'Sos un extractor fiel de datos de informes médicos. Tu prioridad absoluta es reproducir los hallazgos EXACTAMENTE como aparecen en el documento. NUNCA inviertas un hallazgo. NUNCA afirmes ausencia de algo que esté descripto en el cuerpo del informe. Los hallazgos anatómicos del cuerpo del informe tienen precedencia sobre la conclusión final. Si hay discrepancia entre cuerpo e informe, reportá lo que dice el cuerpo.' },
-          { role: 'user', content: messageContent }
-        ]
-      })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
-    }
-    const data = await res.json();
-    if (data.choices?.[0]?.message?.content) {
-      outEl.textContent = stripAsterisks(data.choices[0].message.content);
-      outEl.className = 'hcop-box';
-    } else {
-      throw new Error(data.error?.message || 'respuesta vacía');
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openai },
+        body: JSON.stringify({ model: 'gpt-4o', max_tokens: 2000,
+          messages: [{ role: 'system', content: systemMsg },
+                     { role: 'user', content: promptText + '\n\nESTUDIO:\n' + text }] })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
+      }
+      const data = await res.json();
+      const result = data.choices?.[0]?.message?.content;
+      if (result) { outEl.textContent = stripAsterisks(result); outEl.className = 'hcop-box'; }
+      else throw new Error('respuesta vacía');
     }
   } catch(e) {
     outEl.textContent = 'Error: ' + e.message;

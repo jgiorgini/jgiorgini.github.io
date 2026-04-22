@@ -1,4 +1,4 @@
-const CACHE = 'cardiorec-v10';
+const CACHE = 'cardiorec-v12';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -18,7 +18,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.url.includes('api.anthropic.com') ||
       e.request.url.includes('api.openai.com') ||
-      e.request.url.includes('fonts.googleapis.com')) {
+      e.request.url.includes('fonts.googleapis.com') ||
+      e.request.url.includes('cdnjs.cloudflare.com')) {
     return;
   }
   e.respondWith(
