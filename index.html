@@ -187,7 +187,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
 <div class="app">
   <div class="header">
-    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v8</span></div>
+    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v9</span></div>
     <div class="settings-btn" onclick="openSettings()">⚙</div>
   </div>
 
@@ -232,11 +232,11 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
       <button class="import-type-btn" id="btnOutHcop" onclick="setImportOutput('hcop')">→ RESUMEN HCOP</button>
     </div>
 
-    <button class="btn-process" id="btnProcess" onclick="processStudy()">→ PROCESAR CON CLAUDE</button>
+    <button class="btn-process" id="btnProcess" onclick="processStudy()">→ PROCESAR CON GPT-4o</button>
 
     <div class="section" style="margin-left:0;margin-right:0;margin-top:16px">
       <div class="section-header">
-        <div class="section-label" id="importOutputLabel">RESULTADO — CLAUDE</div>
+        <div class="section-label" id="importOutputLabel">RESULTADO — GPT-4o</div>
         <div class="section-actions">
           <button class="btn-small" onclick="shareImport('whatsapp')">WhatsApp</button>
           <button class="btn-small" onclick="shareImport('mail')">mail</button>
@@ -278,7 +278,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
       <div class="section-label">TRANSCRIPCIÓN</div>
       <div class="section-actions">
         <button class="btn-small" onclick="copyText('transcBox')">copiar</button>
-        <button class="btn-small primary" id="btnAnalyze" onclick="analyzeWithClaude()" disabled>→ HCOP</button>
+        <button class="btn-small primary" id="btnAnalyze" onclick="analyzeWithClaude()" disabled>→ HCOP (GPT-4o)</button>
       </div>
     </div>
     <div class="text-box empty" id="transcBox">La transcripción aparecerá aquí...</div>
@@ -293,7 +293,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
   <div class="section" id="hcopSection">
     <div class="section-header">
-      <div class="section-label">HCOP — CLAUDE</div>
+      <div class="section-label">HCOP — GPT-4o</div>
       <div class="section-actions">
         <button class="btn-small" onclick="shareHCOP('whatsapp')" title="Compartir por WhatsApp">WhatsApp</button>
         <button class="btn-small" onclick="shareHCOP('mail')" title="Enviar por mail">mail</button>
@@ -313,11 +313,6 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="settings-title">Configuración</div>
 
     <div class="field">
-      <label class="field-label">API KEY — ANTHROPIC (CLAUDE)</label>
-      <input type="password" id="cfgAnthropic" placeholder="sk-ant-..."/>
-    </div>
-
-    <div class="field">
       <label class="field-label">MÉTODO DE TRANSCRIPCIÓN</label>
       <select id="cfgMethod" onchange="onMethodChange()">
         <option value="whisper">Whisper (OpenAI) — mejor precisión</option>
@@ -326,7 +321,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     </div>
 
     <div class="field" id="openaiField">
-      <label class="field-label">API KEY — OPENAI (WHISPER)</label>
+      <label class="field-label">API KEY — OPENAI (Whisper + GPT-4o)</label>
       <input type="password" id="cfgOpenai" placeholder="sk-..."/>
     </div>
 
@@ -441,7 +436,6 @@ function setMode(m) {
 
 function getSettings() {
   return {
-    anthropic: localStorage.getItem('cr_anthropic') || '',
     openai: localStorage.getItem('cr_openai') || '',
     method: localStorage.getItem('cr_method') || 'whisper',
     promptConsulta: localStorage.getItem('cr_prompt_consulta') || document.getElementById('cfgPromptConsulta').value,
@@ -452,7 +446,6 @@ function getSettings() {
 
 function openSettings() {
   const s = getSettings();
-  document.getElementById('cfgAnthropic').value = s.anthropic;
   document.getElementById('cfgOpenai').value = s.openai;
   document.getElementById('cfgMethod').value = s.method;
   document.getElementById('cfgPromptConsulta').value = s.promptConsulta;
@@ -468,7 +461,6 @@ function onMethodChange() {
 }
 
 function saveSettings() {
-  localStorage.setItem('cr_anthropic', document.getElementById('cfgAnthropic').value.trim());
   localStorage.setItem('cr_openai', document.getElementById('cfgOpenai').value.trim());
   localStorage.setItem('cr_method', document.getElementById('cfgMethod').value);
   localStorage.setItem('cr_prompt_consulta', document.getElementById('cfgPromptConsulta').value);
@@ -562,9 +554,9 @@ function stopLevelMeter() {
 
 async function startRec() {
   const settings = getSettings();
-  if (!settings.anthropic) {
+  if (!settings.openai) {
     openSettings();
-    showToast('Configurá las API Keys primero');
+    showToast('Configurá la API Key de OpenAI primero');
     return;
   }
   try {
@@ -792,25 +784,23 @@ async function transcribeSegment(blob, num, isFinal, retryCount) {
 
 async function analyzeWithClaude() {
   const settings = getSettings();
-  if (!settings.anthropic) { openSettings(); return; }
+  if (!settings.openai) { openSettings(); return; }
   const text = transcriptionText.trim();
   if (!text) return;
   const prompt = mode === 'consulta' ? settings.promptConsulta : settings.promptDictado;
 
-  setHcop('Procesando con Claude...', false, true);
+  setHcop('Procesando con GPT-4o...', false, true);
   document.getElementById('btnAnalyze').disabled = true;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': settings.anthropic,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'Authorization': 'Bearer ' + settings.openai
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'gpt-4o',
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt + '\n\nTRANSCRIPCIÓN:\n' + text }]
       })
@@ -820,8 +810,8 @@ async function analyzeWithClaude() {
       throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
     }
     const data = await res.json();
-    if (data.content?.[0]?.text) {
-      setHcop(data.content[0].text);
+    if (data.choices?.[0]?.message?.content) {
+      setHcop(data.choices[0].message.content);
     } else {
       throw new Error(data.error?.message || 'respuesta vacía');
     }
@@ -839,7 +829,7 @@ function setTranscription(text, empty) {
 
 function setHcop(text, empty, loading) {
   const el = document.getElementById('hcopBox');
-  if (empty || !text) { el.textContent = 'El HCOP generado por Claude aparecerá aquí...'; el.className = 'hcop-box empty'; }
+  if (empty || !text) { el.textContent = 'El HCOP generado por GPT-4o aparecerá aquí...'; el.className = 'hcop-box empty'; }
   else if (loading) { el.textContent = text; el.className = 'hcop-box loading'; }
   else { el.textContent = text; el.className = 'hcop-box'; }
 }
@@ -890,11 +880,17 @@ function extractClinicalValues(text) {
              || t.match(/(\d{2,3}(?:[.,]\d+)?)\s*(?:kg|kilos?)/i);
   if (pesoM) vals.peso = parseFloat(pesoM[1].replace(',', '.'));
 
-  // Talla (cm o metros)
-  const tallaM = t.match(/(?:talla[:\s]+|mide\s+|altura[:\s]+)(\d+(?:[.,]\d+)?)\s*(?:cm|metros?|m\b)?/i);
-  if (tallaM) {
-    let v = parseFloat(tallaM[1].replace(',', '.'));
-    if (v < 3) v = v * 100; // metros → cm
+  // Talla — formato "1 metro 66" / "1m66" / "1,66 m" / "166 cm"
+  const tallaMF = t.match(/(?:talla[:\s]+|mide\s+|altura[:\s]+)(\d)\s*metros?\s+(\d{2})\b/i);  // "1 metro 66"
+  const tallaM1 = t.match(/(?:talla[:\s]+|mide\s+|altura[:\s]+)(\d)m(\d{2})\b/i);              // "1m66"
+  const tallaM2 = t.match(/(?:talla[:\s]+|mide\s+|altura[:\s]+)(\d+(?:[.,]\d+)?)\s*(?:cm|metros?|m\b)/i); // "1,66 m" o "166 cm"
+  if (tallaMF) {
+    vals.talla = parseInt(tallaMF[1]) * 100 + parseInt(tallaMF[2]);
+  } else if (tallaM1) {
+    vals.talla = parseInt(tallaM1[1]) * 100 + parseInt(tallaM1[2]);
+  } else if (tallaM2) {
+    let v = parseFloat(tallaM2[1].replace(',', '.'));
+    if (v < 3) v = v * 100; // metros decimales → cm
     vals.talla = v;
   }
 
@@ -1077,7 +1073,7 @@ function setImportOutput(t) {
   importOutputType = t;
   document.getElementById('btnOutHclab').classList.toggle('active', t === 'hclab');
   document.getElementById('btnOutHcop').classList.toggle('active', t === 'hcop');
-  document.getElementById('importOutputLabel').textContent = t === 'hclab' ? 'HCLAB — CLAUDE' : 'RESUMEN HCOP — CLAUDE';
+  document.getElementById('importOutputLabel').textContent = t === 'hclab' ? 'HCLAB — GPT-4o' : 'RESUMEN HCOP — GPT-4o';
 }
 
 function onImportFileSelected(event) {
@@ -1097,12 +1093,12 @@ function onImportFileSelected(event) {
 
 async function processStudy() {
   const settings = getSettings();
-  if (!settings.anthropic) { openSettings(); showToast('Configurá la API Key de Claude'); return; }
+  if (!settings.openai) { openSettings(); showToast('Configurá la API Key de OpenAI'); return; }
 
   const btn = document.getElementById('btnProcess');
   const outEl = document.getElementById('importOutput');
   btn.disabled = true;
-  outEl.textContent = 'Procesando con Claude...';
+  outEl.textContent = 'Procesando con GPT-4o...';
   outEl.className = 'hcop-box loading';
 
   const promptText = importOutputType === 'hclab' ? PROMPT_IMPORT_HCLAB : PROMPT_IMPORT_HCOP;
@@ -1120,14 +1116,15 @@ async function processStudy() {
       }
       const isImage = importFileMediaType.startsWith('image/');
       if (isImage) {
+        // GPT-4o vision: imagen en base64
         messageContent = [
-          { type: 'image', source: { type: 'base64', media_type: importFileMediaType, data: importFileData } },
+          { type: 'image_url', image_url: { url: 'data:' + importFileMediaType + ';base64,' + importFileData } },
           { type: 'text', text: promptText }
         ];
       } else {
-        // PDF
+        // PDF: GPT-4o lo acepta como file content
         messageContent = [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: importFileData } },
+          { type: 'file', file: { filename: 'estudio.pdf', file_data: 'data:application/pdf;base64,' + importFileData } },
           { type: 'text', text: promptText }
         ];
       }
@@ -1143,22 +1140,14 @@ async function processStudy() {
       messageContent = promptText + '\n\nESTUDIO:\n' + text;
     }
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'x-api-key': settings.anthropic,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    };
-    // Beta PDF support
-    if (importInputType === 'file' && !importFileMediaType.startsWith('image/')) {
-      headers['anthropic-beta'] = 'pdfs-2024-09-25';
-    }
-
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + settings.openai
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'gpt-4o',
         max_tokens: 2000,
         messages: [{ role: 'user', content: messageContent }]
       })
@@ -1169,8 +1158,8 @@ async function processStudy() {
       throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
     }
     const data = await res.json();
-    if (data.content?.[0]?.text) {
-      outEl.textContent = data.content[0].text;
+    if (data.choices?.[0]?.message?.content) {
+      outEl.textContent = data.choices[0].message.content;
       outEl.className = 'hcop-box';
     } else {
       throw new Error(data.error?.message || 'respuesta vacía');
