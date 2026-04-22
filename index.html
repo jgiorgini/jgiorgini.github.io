@@ -827,11 +827,15 @@ function setTranscription(text, empty) {
   else { el.textContent = text; el.className = 'text-box'; el.scrollTop = el.scrollHeight; }
 }
 
+function stripAsterisks(text) {
+  return text.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1');
+}
+
 function setHcop(text, empty, loading) {
   const el = document.getElementById('hcopBox');
   if (empty || !text) { el.textContent = 'El HCOP generado por GPT-4o aparecerá aquí...'; el.className = 'hcop-box empty'; }
   else if (loading) { el.textContent = text; el.className = 'hcop-box loading'; }
-  else { el.textContent = text; el.className = 'hcop-box'; }
+  else { el.textContent = stripAsterisks(text); el.className = 'hcop-box'; }
 }
 
 function clearHcop() { setHcop('', true); }
@@ -1018,7 +1022,7 @@ function shareHCOP(method) {
   if (method === 'whatsapp') {
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
   } else {
-    window.location.href = 'mailto:?subject=Historia%20Cl%C3%ADnica&body=' + encodeURIComponent(text);
+    window.open('https://mail.google.com/mail/?view=cm&su=' + encodeURIComponent('Historia Clínica') + '&body=' + encodeURIComponent(text), '_blank');
   }
 }
 
@@ -1159,7 +1163,7 @@ async function processStudy() {
     }
     const data = await res.json();
     if (data.choices?.[0]?.message?.content) {
-      outEl.textContent = data.choices[0].message.content;
+      outEl.textContent = stripAsterisks(data.choices[0].message.content);
       outEl.className = 'hcop-box';
     } else {
       throw new Error(data.error?.message || 'respuesta vacía');
@@ -1191,7 +1195,7 @@ function shareImport(method) {
   if (method === 'whatsapp') {
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
   } else {
-    window.location.href = 'mailto:?subject=Estudio%20M%C3%A9dico&body=' + encodeURIComponent(text);
+    window.open('https://mail.google.com/mail/?view=cm&su=' + encodeURIComponent('Estudio Médico') + '&body=' + encodeURIComponent(text), '_blank');
   }
 }
 
