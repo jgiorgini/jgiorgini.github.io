@@ -1059,13 +1059,15 @@ PRINCIPIOS GENERALES:
 - Si el documento contiene múltiples estudios, procesarlos todos en orden.
 
 LABORATORIO → FORMATO HCLAB:
-- Encabezado: LABORATORIO dd/mm/aaaa
+- Encabezado: LABORATORIO dd/mm/aaaa (si no hay fecha en el documento: LABORATORIO s/f)
 - Todo en UNA SOLA LÍNEA, parámetros separados por comas, sin saltos de línea
-- Incluir TODOS los valores presentes, normales y anormales
+- Incluir TODOS los valores presentes en el documento, normales y anormales
+- "s/f" se usa ÚNICAMENTE cuando falta la FECHA del laboratorio. NUNCA para valores de parámetros.
+- Si un parámetro no tiene valor en el documento: omitirlo directamente, no incluirlo con s/f
 - Sin unidades, sin rangos de referencia, sin texto explicativo
 - Excluir: VCM, HCM, CHCM, RDW, fórmula leucocitaria (neutrófilos%, linfocitos%, monocitos%, etc.)
 - Orden: Hto, Hb, Plaq → Glu, HbA1c → Urea, Creat, eGFR → Uricemia → Na, K → ColT, LDL, HDL, TG, noHDL → GOT, GPT, FAL, BT, BD, BI → Prot, Alb → TSH, T4L → otros (PSA, ferritina, etc.)
-- Si hay múltiples fechas: una línea HCLAB por fecha
+- Si hay múltiples fechas REALES en el documento: una línea HCLAB por fecha. No inventar fechas.
 - Ejemplo: LABORATORIO 07/04/2025: Hto 43.7, Hb 15.5, Plaq 187, Glu 103, Urea 38, Creat 1.09, eGFR 74, AU 6.25, ColT 169, LDL 87, HDL 55, TG 133, noHDL 114, GOT 16, GPT 20, FAL 65, BT 0.54, BD 0.22, Prot 6.6, Alb 4.62, TSH 3.44, T4L 1.30, PSA 8.11, PSA libre 1.27
 
 ERGOMETRÍA / ECO-ESTRÉS → FORMATO HCSTRESS (una sola línea):
@@ -1095,6 +1097,8 @@ OTROS ESTUDIOS (TC, RMN, Rx, etc.):
 
 REGLAS DE ORO:
 - NUNCA inventar fechas ni datos ausentes en el documento
+- NUNCA usar "s/f" para valores de parámetros de laboratorio — si no está el valor, omitir ese parámetro
+- NUNCA crear una línea HCLAB para una fecha que no existe en el documento
 - NUNCA omitir ateromatosis, placas o hallazgos vasculares aunque sean incidentales o no obstructivos
 - NUNCA usar una fecha de otro estudio si no está clara
 - Devolver SOLO el resultado formateado, sin introducción ni aclaraciones finales`;
