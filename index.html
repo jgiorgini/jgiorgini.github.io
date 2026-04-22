@@ -187,7 +187,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
 <div class="app">
   <div class="header">
-    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v10</span></div>
+    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v11</span></div>
     <div class="settings-btn" onclick="openSettings()">⚙</div>
   </div>
 
@@ -223,11 +223,12 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     </div>
 
     <div id="importFileArea" style="display:none">
-      <input type="file" id="importFileInput" accept="application/pdf,image/jpeg,image/png,image/gif,image/webp" style="display:none" onchange="onImportFileSelected(event)"/>
+      <input type="file" id="importFileInput" accept="application/pdf,image/jpeg,image/png,image/gif,image/webp" multiple style="display:none" onchange="onImportFileSelected(event)"/>
       <div class="pdf-drop" id="pdfDrop" onclick="document.getElementById('importFileInput').click()">
         <div class="pdf-drop-icon">📂</div>
-        <div class="pdf-drop-label" id="pdfDropLabel">Tocá para seleccionar PDF o imagen</div>
+        <div class="pdf-drop-label" id="pdfDropLabel">Tocá para seleccionar PDF o imágenes (múltiples)</div>
       </div>
+      <div id="fileList" style="margin-top:8px;font-size:11px;color:var(--text3);display:none"></div>
     </div>
 
     <button class="btn-process" id="btnProcess" onclick="processStudy()">→ PROCESAR CON GPT-4o</button>
@@ -372,6 +373,7 @@ Si hay datos de laboratorio, usá formato HCLAB con estas reglas:
 
     <button class="settings-save" onclick="saveSettings()">Guardar configuración</button>
     <button class="settings-save" style="margin-top:8px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="resetPrompts()">Restaurar prompts por defecto</button>
+    <button class="settings-save" style="margin-top:8px;background:transparent;color:#e05;border:1px solid #e05" onclick="resetSession()">Limpiar sesión completa</button>
   </div>
 </div>
 
@@ -477,10 +479,27 @@ function overlayClick(e) {
 function resetPrompts() {
   localStorage.removeItem('cr_prompt_consulta');
   localStorage.removeItem('cr_prompt_dictado');
-  // Recargar defaults del HTML en los campos
   document.getElementById('cfgPromptConsulta').value = document.getElementById('cfgPromptConsulta').defaultValue;
   document.getElementById('cfgPromptDictado').value = document.getElementById('cfgPromptDictado').defaultValue;
   showToast('Prompts restaurados por defecto');
+}
+
+function resetSession() {
+  if (!confirm('¿Limpiar toda la sesión actual? Se borrarán la transcripción, el HCOP y los archivos cargados. La configuración y las API keys se mantienen.')) return;
+  // Transcripción y HCOP
+  transcriptionText = '';
+  setTranscription('', true);
+  setHcop('', true);
+  // Import
+  importFiles = [];
+  updateFileListUI();
+  document.getElementById('importText').value = '';
+  document.getElementById('importOutput').textContent = 'El resultado formateado aparecerá aquí...';
+  document.getElementById('importOutput').className = 'hcop-box empty';
+  const inp = document.getElementById('importFileInput');
+  if (inp) inp.value = '';
+  document.getElementById('overlay').classList.remove('open');
+  showToast('Sesión limpiada');
 }
 
 function setStatus(text, cls) {
@@ -1026,45 +1045,57 @@ function shareHCOP(method) {
 
 // ─── IMPORTAR ESTUDIO ────────────────────────────────────────────
 let importInputType = 'text';  // 'text' | 'file'
-let importFileData = null;     // base64 del archivo
-let importFileMediaType = '';  // 'application/pdf' | 'image/jpeg' | etc.
+let importFiles = [];  // Array de {data: base64, mediaType: string, name: string}
 
-const PROMPT_IMPORT = `Analizá este informe médico y generá un resumen conciso para historia clínica.
+const PROMPT_IMPORT = `Sos un asistente clínico para un médico cardiólogo. Procesás estudios complementarios y laboratorios, sintetizás la información y devolvés un resultado listo para copiar en historia clínica, con formato estandarizado.
 
-REGLAS GENERALES:
-- Identificá el tipo de estudio y la fecha desde el encabezado del informe (ej: "Ecografía con Doppler Renal", "Laboratorio", "ECG", "Ergometría", etc.)
-- NO escribas en primera persona como si fueras el médico que realizó el estudio. No uses "Realicé", "Observé", "Se practicó", "Presentamos", etc.
-- Sin viñetas, sin guiones, sin flechas, sin íconos
-- Texto fluido y profesional, listo para copiar a historia clínica
+PRINCIPIOS GENERALES:
+- No inventar datos ni fechas. Si no figura la fecha, usar "s/f".
+- No completar valores que no estén presentes en el documento.
+- No usar lenguaje alarmista. Redacción clínica directa.
+- Anonimizar: no incluir nombre ni número de paciente.
+- Sin viñetas, sin guiones, sin íconos.
+- NO escribir en primera persona como quien realizó el estudio (no usar "Realicé", "Observé", "Se practicó", "Informamos").
+- Si el documento contiene múltiples estudios, procesarlos todos en orden.
 
-FORMATO SEGÚN TIPO:
+LABORATORIO → FORMATO HCLAB:
+- Encabezado: LABORATORIO dd/mm/aaaa
+- Todo en UNA SOLA LÍNEA, parámetros separados por comas, sin saltos de línea
+- Incluir TODOS los valores presentes, normales y anormales
+- Sin unidades, sin rangos de referencia, sin texto explicativo
+- Excluir: VCM, HCM, CHCM, RDW, fórmula leucocitaria (neutrófilos%, linfocitos%, monocitos%, etc.)
+- Orden: Hto, Hb, Plaq → Glu, HbA1c → Urea, Creat, eGFR → Uricemia → Na, K → ColT, LDL, HDL, TG, noHDL → GOT, GPT, FAL, BT, BD, BI → Prot, Alb → TSH, T4L → otros (PSA, ferritina, etc.)
+- Si hay múltiples fechas: una línea HCLAB por fecha
+- Ejemplo: LABORATORIO 07/04/2025: Hto 43.7, Hb 15.5, Plaq 187, Glu 103, Urea 38, Creat 1.09, eGFR 74, AU 6.25, ColT 169, LDL 87, HDL 55, TG 133, noHDL 114, GOT 16, GPT 20, FAL 65, BT 0.54, BD 0.22, Prot 6.6, Alb 4.62, TSH 3.44, T4L 1.30, PSA 8.11, PSA libre 1.27
 
-Si es LABORATORIO:
-- Formato HCLAB: encabezado LABORATORIO dd/mm/aaaa, todo en una sola línea separada por comas
-- Incluir solo valores fuera de rango. Si todos son normales, escribir "LABORATORIO dd/mm/aaaa: dentro de límites normales"
-- Sin unidades, sin rangos de referencia
-- Orden: Hb, Hto, Plaq → Glu, HbA1c → Urea, Creat, FG → Na, K → GOT, GPT, FAL, BT → ColT, LDL, HDL, TG → TSH → otros
-- Excluir: VCM, HCM, CHCM, RDW, diferencial leucocitario
-- Si hay múltiples fechas: una línea por fecha
+ERGOMETRÍA / ECO-ESTRÉS → FORMATO HCSTRESS (una sola línea):
+Incluir OBLIGATORIAMENTE: Fecha, FC basal→máxima, TA basal→máxima, protocolo, METS, % FCMT, suficiencia, doble producto, duración, síntomas, resultado isquémico.
+Ejemplo: ERGOMETRÍA 14/10/2025: FC 75→147, TA basal s/d→150/80, protocolo Bruce, 13 METS, 98% FCMT, suficiente, DP s/d, duración s/d, sin síntomas, sin isquemia
 
-Si es IMAGEN u OTRO ESTUDIO (eco, doppler, RMN, TAC, rx, holter, ECG, ergometría, etc.):
-- Primera línea: NOMBRE DEL ESTUDIO en mayúsculas (dd/mm/aaaa)
-- Luego: solo hallazgos ANORMALES con sus valores numéricos exactos
-- Al final: la conclusión del informe, textual o resumida
-- Si no hay hallazgos anormales, escribir solo la conclusión
-- Omitir todo lo que sea "dentro de límites normales", "sin alteraciones", "conservado", "normal"
+ECOCARDIOGRAMA:
+- NOMBRE DEL ESTUDIO EN MAYÚSCULAS (dd/mm/aaaa)
+- Incluir: FEVI, dimensiones de cavidades (VI, AI al menos), función diastólica, valvulopatías, presión pulmonar estimada, TAPSE si figura, pericardio
+- Para cualquier valvulopatía: incluir siempre grado, gradientes, área valvular, área indexada, velocidad pico
+- Texto fluido, sin viñetas
 
-Para VALVULOPATÍAS (cualquier válvula): incluir siempre si están presentes:
-gradiente medio y máximo, área valvular, área indexada a superficie corporal (si figura),
-velocidad sistólica pico, grado de estenosis o insuficiencia, mecanismo si se describe.
-No omitir estos datos aunque sean normales si hay diagnóstico valvular.
+DOPPLER VASCULAR (carotídeo, renal, miembros, etc.):
+- NOMBRE DEL ESTUDIO EN MAYÚSCULAS (dd/mm/aaaa)
+- Reportar SIEMPRE: presencia/ausencia de ateromatosis, engrosamiento íntima-media, placas (ubicación exacta, tamaño si figura, grado de estenosis, repercusión hemodinámica)
+- NUNCA omitir placas aunque sean no obstructivas — son hallazgo de alto riesgo cardiovascular
+- Velocidades solo si son anormales
+- Flujo vertebral: mencionar solo si hay alteración
 
-EJEMPLOS:
-Laboratorio normal: LABORATORIO 17/11/2025: dentro de límites normales
-Lab con anormales: LABORATORIO 17/11/2025: Glu 126, ColT 245, LDL 170
-Imagen: ECOGRAFÍA CON DOPPLER RENAL (17/11/2025): Quistes corticales simples bilaterales, el mayor en riñón derecho 8,3 mm. Conclusión: Doppler color dentro de límites normales.
+ECG:
+- ECG (dd/mm/aaaa): ritmo, FC, PR, QRS, QTc. Hallazgos patológicos si existen; si es normal, escribir "sin alteraciones significativas"
 
-Devolvé SOLO el resumen, sin introducción, sin aclaraciones, sin texto adicional.`;
+OTROS ESTUDIOS (TC, RMN, Rx, etc.):
+- NOMBRE DEL ESTUDIO EN MAYÚSCULAS (dd/mm/aaaa): hallazgos clínicamente relevantes + conclusión
+
+REGLAS DE ORO:
+- NUNCA inventar fechas ni datos ausentes en el documento
+- NUNCA omitir ateromatosis, placas o hallazgos vasculares aunque sean incidentales o no obstructivos
+- NUNCA usar una fecha de otro estudio si no está clara
+- Devolver SOLO el resultado formateado, sin introducción ni aclaraciones finales`;
 
 function setImportType(t) {
   importInputType = t;
@@ -1078,19 +1109,43 @@ function clearImportText() {
   document.getElementById('importText').value = '';
 }
 
-function onImportFileSelected(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+function updateFileListUI() {
+  const listEl = document.getElementById('fileList');
   const drop = document.getElementById('pdfDrop');
-  const label = document.getElementById('pdfDropLabel');
-  label.textContent = file.name;
+  if (importFiles.length === 0) {
+    listEl.style.display = 'none';
+    drop.classList.remove('has-file');
+    document.getElementById('pdfDropLabel').textContent = 'Tocá para seleccionar PDF o imágenes (múltiples)';
+    return;
+  }
   drop.classList.add('has-file');
-  importFileMediaType = file.type || 'application/pdf';
-  const reader = new FileReader();
-  reader.onload = e => {
-    importFileData = e.target.result.split(',')[1]; // base64 sin el prefijo data:...
-  };
-  reader.readAsDataURL(file);
+  document.getElementById('pdfDropLabel').textContent = importFiles.length === 1 ? importFiles[0].name : importFiles.length + ' archivos cargados';
+  listEl.style.display = 'block';
+  listEl.innerHTML = importFiles.map((f,i) =>
+    `<span style="display:inline-block;margin:2px 4px;padding:2px 8px;background:var(--surface2);border-radius:4px;cursor:pointer" onclick="removeImportFile(${i})">✕ ${f.name}</span>`
+  ).join('');
+}
+
+function removeImportFile(i) {
+  importFiles.splice(i, 1);
+  updateFileListUI();
+}
+
+function onImportFileSelected(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  let pending = files.length;
+  files.forEach(file => {
+    const mediaType = file.type || 'application/pdf';
+    const reader = new FileReader();
+    reader.onload = e => {
+      importFiles.push({ data: e.target.result.split(',')[1], mediaType, name: file.name });
+      pending--;
+      if (pending === 0) updateFileListUI();
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
 }
 
 async function processStudy() {
@@ -1109,27 +1164,23 @@ async function processStudy() {
     let messageContent;
 
     if (importInputType === 'file') {
-      if (!importFileData) {
+      if (!importFiles.length) {
         showToast('Seleccioná un archivo primero');
         btn.disabled = false;
         outEl.textContent = 'El resultado formateado aparecerá aquí...';
         outEl.className = 'hcop-box empty';
         return;
       }
-      const isImage = importFileMediaType.startsWith('image/');
-      if (isImage) {
-        // GPT-4o vision: imagen en base64
-        messageContent = [
-          { type: 'image_url', image_url: { url: 'data:' + importFileMediaType + ';base64,' + importFileData } },
-          { type: 'text', text: promptText }
-        ];
-      } else {
-        // PDF: GPT-4o lo acepta como file content
-        messageContent = [
-          { type: 'file', file: { filename: 'estudio.pdf', file_data: 'data:application/pdf;base64,' + importFileData } },
-          { type: 'text', text: promptText }
-        ];
+      messageContent = [];
+      for (const f of importFiles) {
+        if (f.mediaType.startsWith('image/')) {
+          messageContent.push({ type: 'image_url', image_url: { url: 'data:' + f.mediaType + ';base64,' + f.data } });
+        } else {
+          // PDF
+          messageContent.push({ type: 'file', file: { filename: f.name, file_data: 'data:application/pdf;base64,' + f.data } });
+        }
       }
+      messageContent.push({ type: 'text', text: promptText });
     } else {
       const text = document.getElementById('importText').value.trim();
       if (!text) {
@@ -1177,11 +1228,8 @@ function clearImportOutput() {
   const el = document.getElementById('importOutput');
   el.textContent = 'El resultado formateado aparecerá aquí...';
   el.className = 'hcop-box empty';
-  // Resetear file
-  importFileData = null;
-  importFileMediaType = '';
-  const drop = document.getElementById('pdfDrop');
-  if (drop) { drop.classList.remove('has-file'); document.getElementById('pdfDropLabel').textContent = 'Tocá para seleccionar PDF o imagen'; }
+  importFiles = [];
+  updateFileListUI();
   const inp = document.getElementById('importFileInput');
   if (inp) inp.value = '';
 }
@@ -1220,12 +1268,11 @@ document.addEventListener('paste', (e) => {
           canvas.width = w; canvas.height = h;
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
           const jpegUrl = canvas.toDataURL('image/jpeg', 0.92);
-          importFileData = jpegUrl.split(',')[1];
-          importFileMediaType = 'image/jpeg';
+          const n = importFiles.length + 1;
+          importFiles.push({ data: jpegUrl.split(',')[1], mediaType: 'image/jpeg', name: 'captura-' + n + '.jpg' });
           setImportType('file');
-          document.getElementById('pdfDropLabel').textContent = 'Captura pegada (' + w + '×' + h + ' px)';
-          document.getElementById('pdfDrop').classList.add('has-file');
-          showToast('Imagen pegada — presioná Procesar');
+          updateFileListUI();
+          showToast('Captura ' + n + ' agregada — podés pegar más o presionar Procesar');
         };
         img.src = ev.target.result;
       };
