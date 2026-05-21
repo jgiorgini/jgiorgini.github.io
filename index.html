@@ -187,7 +187,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
 <div class="app">
   <div class="header">
-    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v12</span></div>
+    <div class="logo">Cardio<span>Rec</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v13</span></div>
     <div class="settings-btn" onclick="openSettings()">⚙</div>
   </div>
 
@@ -411,11 +411,37 @@ let segmentCount = 0;
 let segments = [];
 let segRetryTimers = {};
 let initChunk = null; // primer chunk de webm — contiene el header EBML necesario
+let recorderExt = 'webm';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [8000, 16000, 25000];
 
 const SEGMENT_MS = 90000;
+const BACKUP_KEY = 'grabadora_backup';
+
+function saveBackup() {
+  try {
+    localStorage.setItem(BACKUP_KEY, JSON.stringify({ text: transcriptionText, ts: Date.now(), segs: segmentCount }));
+  } catch(e) {}
+}
+
+function clearBackup() {
+  localStorage.removeItem(BACKUP_KEY);
+}
+
+function checkBackup() {
+  try {
+    const raw = localStorage.getItem(BACKUP_KEY);
+    if (!raw) return;
+    const b = JSON.parse(raw);
+    if (Date.now() - b.ts > 12 * 3600 * 1000) { clearBackup(); return; }
+    if (!b.text || b.text.trim().length < 10) return;
+    transcriptionText = b.text;
+    setTranscription(transcriptionText);
+    document.getElementById('btnAnalyze').disabled = false;
+    showToast('Transcripción previa recuperada (' + b.segs + ' segmentos). Podés exportarla.');
+  } catch(e) { clearBackup(); }
+}
 
 function setMode(m) {
   mode = m;
@@ -488,6 +514,8 @@ function resetSession() {
   if (!confirm('¿Limpiar toda la sesión actual? Se borrarán la transcripción, el HCOP y los archivos cargados. La configuración y las API keys se mantienen.')) return;
   // Transcripción y HCOP
   transcriptionText = '';
+  seconds = 0;
+  document.getElementById('timer').textContent = '00:00';
   setTranscription('', true);
   setHcop('', true);
   // Import
@@ -524,6 +552,7 @@ async function acquireWakeLock() {
       document.getElementById('wlDot').className = 'wl-dot on';
       document.getElementById('wlLabel').textContent = 'PANTALLA ACTIVA: ON';
       wakeLock.addEventListener('release', () => {
+        wakeLock = null; // permite re-adquirir en visibilitychange cuando el OS lo libera
         document.getElementById('wlDot').className = 'wl-dot';
         document.getElementById('wlLabel').textContent = 'PANTALLA ACTIVA: LIBERADO';
       });
@@ -620,8 +649,16 @@ async function startRec() {
 }
 
 function startWhisperRecorder() {
-  const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? { mimeType: 'audio/webm;codecs=opus' } : {};
+  let opts = {};
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+    opts = { mimeType: 'audio/webm;codecs=opus' }; recorderExt = 'webm';
+  } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+    opts = { mimeType: 'audio/ogg;codecs=opus' }; recorderExt = 'ogg';
+  } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+    opts = { mimeType: 'audio/webm' }; recorderExt = 'webm';
+  } else {
+    recorderExt = 'webm';
+  }
   mediaRecorder = new MediaRecorder(stream, opts);
   mediaRecorder.ondataavailable = e => {
     if (e.data && e.data.size > 0) {
@@ -632,6 +669,9 @@ function startWhisperRecorder() {
         audioChunks.push(e.data);
       }
     }
+  };
+  mediaRecorder.onerror = e => {
+    showToast('Error de grabación: ' + (e.error?.name || 'desconocido') + '. Detené y reiniciá.');
   };
   mediaRecorder.start(1000);
 
@@ -727,6 +767,7 @@ async function stopRec() {
 
   setStatus('LISTO', 'idle');
   document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
+  clearBackup();
 }
 
 function addSegmentUI(num, status) {
@@ -761,7 +802,7 @@ async function transcribeSegment(blob, num, isFinal, retryCount) {
 
   try {
     const fd = new FormData();
-    fd.append('file', blob, 'audio.webm');
+    fd.append('file', blob, 'audio.' + recorderExt);
     fd.append('model', 'whisper-1');
     fd.append('language', 'es');
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -782,6 +823,7 @@ async function transcribeSegment(blob, num, isFinal, retryCount) {
       runCalcs(transcriptionText);
       updateSegmentUI(num, corrected, 'ok');
       document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
+      saveBackup();
     } else {
       throw new Error(data.error?.message || 'respuesta vacía');
     }
@@ -1347,10 +1389,15 @@ document.addEventListener('paste', (e) => {
 });
 
 document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && isRecording && !isPaused && !wakeLock) {
-    await acquireWakeLock();
+  if (document.visibilityState === 'visible' && isRecording && !isPaused) {
+    if (!wakeLock) {
+      await acquireWakeLock();
+      showToast('⚠️ La pantalla se apagó mientras grababas. Verificá que la grabación continúa.');
+    }
   }
 });
+
+checkBackup();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
