@@ -4,11 +4,11 @@ PWA para grabación y transcripción de consultas cardiológicas con formateo HC
 
 ## Características
 
-- Dos modos: consulta completa / dictado post-consulta
-- Transcripción via Whisper (OpenAI) o Web Speech API nativa
+- Tres modos: consulta completa / dictado post-consulta / importar estudio (PDF, imagen o texto)
+- Transcripción via Web Speech API nativa (gratis, por defecto) o Whisper de OpenAI (opcional, de pago, mejor precisión)
 - Wake Lock: impide que la pantalla/pestaña se suspenda durante la grabación
 - Segmentación automática cada 90 segundos (sin pérdida de datos)
-- Formateo HCOP automático con Claude Sonnet
+- Formateo HCOP e interpretación de estudios (PDF/imagen/texto) via Claude — sin paso de upload de archivos, todo va en el mismo mensaje
 - Instalable como app en celular y desktop (PWA)
 - Todo se procesa localmente — las API keys se guardan solo en el dispositivo
 
@@ -50,10 +50,12 @@ GitHub Pages provee HTTPS automáticamente.
 1. Abrir la app en el browser
 2. Tocar el ícono ⚙ (esquina superior derecha)
 3. Ingresar:
-   - API Key de Anthropic (obligatoria)
-   - Método de transcripción: Whisper (recomendado) o Web Speech (gratuito)
-   - API Key de OpenAI si usás Whisper
+   - API Key de Anthropic (obligatoria — se usa para el HCOP y para Importar Estudio)
+   - Método de transcripción: Web Speech (gratuito, por defecto) o Whisper (OpenAI, de pago, mejor precisión)
+   - API Key de OpenAI solo si elegís Whisper
 4. Guardar — las claves quedan en localStorage del dispositivo
+
+Conseguí tu API Key de Anthropic en [console.anthropic.com](https://console.anthropic.com/settings/keys).
 
 ## Instalación como app en el celular
 
@@ -67,13 +69,15 @@ GitHub Pages provee HTTPS automáticamente.
 
 ## Costo estimado por consulta
 
-- Whisper: ~$0.006/minuto → consulta de 20 min ≈ $0.12 USD
-- Claude Sonnet (HCOP): ~$0.01-0.03 por consulta
-- Total: menos de $0.20 USD por consulta completa
+- Web Speech (transcripción): gratis
+- Whisper (opcional, si lo activás en vez de Web Speech): ~$0.006/minuto → consulta de 20 min ≈ $0.12 USD
+- Claude (HCOP e Importar Estudio): unos pocos centavos de USD por consulta, según extensión del texto/estudio
+- Con Web Speech + Claude, el costo por consulta es solo el de Claude — no hace falta cuenta de OpenAI
 
 ## Privacidad
 
 - Las API keys se almacenan solo en el dispositivo (localStorage)
-- El audio se envía a OpenAI (Whisper) solo para transcripción
-- La transcripción se envía a Anthropic (Claude) para el formateo
+- Con Web Speech (default), el audio se procesa localmente en el navegador — no sale del dispositivo
+- Con Whisper (opcional), el audio se envía a OpenAI solo para transcripción
+- La transcripción, y los PDFs/imágenes de estudios importados, se envían a Anthropic (Claude) para el formateo
 - Ningún dato se almacena en servidores propios

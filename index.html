@@ -231,11 +231,11 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
       <div id="fileList" style="margin-top:8px;font-size:11px;color:var(--text3);display:none"></div>
     </div>
 
-    <button class="btn-process" id="btnProcess" onclick="processStudy()">→ PROCESAR CON GPT-4o</button>
+    <button class="btn-process" id="btnProcess" onclick="processStudy()">→ PROCESAR CON Claude</button>
 
     <div class="section" style="margin-left:0;margin-right:0;margin-top:16px">
       <div class="section-header">
-        <div class="section-label" id="importOutputLabel">RESULTADO — GPT-4o</div>
+        <div class="section-label" id="importOutputLabel">RESULTADO — Claude</div>
         <div class="section-actions">
           <button class="btn-small" onclick="shareImport('whatsapp')">WhatsApp</button>
           <button class="btn-small" onclick="shareImport('mail')">mail</button>
@@ -277,7 +277,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
       <div class="section-label">TRANSCRIPCIÓN</div>
       <div class="section-actions">
         <button class="btn-small" onclick="copyText('transcBox')">copiar</button>
-        <button class="btn-small primary" id="btnAnalyze" onclick="analyzeWithClaude()" disabled>→ HCOP (GPT-4o)</button>
+        <button class="btn-small primary" id="btnAnalyze" onclick="analyzeWithClaude()" disabled>→ HCOP (Claude)</button>
       </div>
     </div>
     <div class="text-box empty" id="transcBox">La transcripción aparecerá aquí...</div>
@@ -292,7 +292,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
   <div class="section" id="hcopSection">
     <div class="section-header">
-      <div class="section-label">HCOP — GPT-4o</div>
+      <div class="section-label">HCOP — Claude</div>
       <div class="section-actions">
         <button class="btn-small" onclick="shareHCOP('whatsapp')" title="Compartir por WhatsApp">WhatsApp</button>
         <button class="btn-small" onclick="shareHCOP('mail')" title="Enviar por mail">mail</button>
@@ -312,15 +312,20 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
     <div class="settings-title">Configuración</div>
 
     <div class="field">
+      <label class="field-label">API KEY — ANTHROPIC (Claude, para HCOP e Importar Estudio)</label>
+      <input type="password" id="cfgAnthropic" placeholder="sk-ant-..."/>
+    </div>
+
+    <div class="field">
       <label class="field-label">MÉTODO DE TRANSCRIPCIÓN</label>
       <select id="cfgMethod" onchange="onMethodChange()">
-        <option value="whisper">Whisper (OpenAI) — mejor precisión</option>
         <option value="native">Web Speech — gratuito, sin API</option>
+        <option value="whisper">Whisper (OpenAI) — mejor precisión, requiere key paga</option>
       </select>
     </div>
 
     <div class="field" id="openaiField">
-      <label class="field-label">API KEY — OPENAI (Whisper + GPT-4o)</label>
+      <label class="field-label">API KEY — OPENAI (solo para Whisper)</label>
       <input type="password" id="cfgOpenai" placeholder="sk-..."/>
     </div>
 
@@ -463,7 +468,8 @@ function setMode(m) {
 function getSettings() {
   return {
     openai: localStorage.getItem('cr_openai') || '',
-    method: localStorage.getItem('cr_method') || 'whisper',
+    anthropic: localStorage.getItem('cr_anthropic') || '',
+    method: localStorage.getItem('cr_method') || 'native',
     promptConsulta: localStorage.getItem('cr_prompt_consulta') || document.getElementById('cfgPromptConsulta').value,
     promptDictado: localStorage.getItem('cr_prompt_dictado') || document.getElementById('cfgPromptDictado').value,
     diccionario: localStorage.getItem('cr_diccionario') || '',
@@ -473,6 +479,7 @@ function getSettings() {
 function openSettings() {
   const s = getSettings();
   document.getElementById('cfgOpenai').value = s.openai;
+  document.getElementById('cfgAnthropic').value = s.anthropic;
   document.getElementById('cfgMethod').value = s.method;
   document.getElementById('cfgPromptConsulta').value = s.promptConsulta;
   document.getElementById('cfgPromptDictado').value = s.promptDictado;
@@ -488,6 +495,7 @@ function onMethodChange() {
 
 function saveSettings() {
   localStorage.setItem('cr_openai', document.getElementById('cfgOpenai').value.trim());
+  localStorage.setItem('cr_anthropic', document.getElementById('cfgAnthropic').value.trim());
   localStorage.setItem('cr_method', document.getElementById('cfgMethod').value);
   localStorage.setItem('cr_prompt_consulta', document.getElementById('cfgPromptConsulta').value);
   localStorage.setItem('cr_prompt_dictado', document.getElementById('cfgPromptDictado').value);
@@ -600,9 +608,9 @@ function stopLevelMeter() {
 
 async function startRec() {
   const settings = getSettings();
-  if (!settings.openai) {
+  if (settings.method === 'whisper' && !settings.openai) {
     openSettings();
-    showToast('Configurá la API Key de OpenAI primero');
+    showToast('Configurá la API Key de OpenAI para usar Whisper');
     return;
   }
   try {
@@ -843,23 +851,25 @@ async function transcribeSegment(blob, num, isFinal, retryCount) {
 
 async function analyzeWithClaude() {
   const settings = getSettings();
-  if (!settings.openai) { openSettings(); return; }
+  if (!settings.anthropic) { openSettings(); showToast('Configurá la API Key de Anthropic (Claude)'); return; }
   const text = transcriptionText.trim();
   if (!text) return;
   const prompt = mode === 'consulta' ? settings.promptConsulta : settings.promptDictado;
 
-  setHcop('Procesando con GPT-4o...', false, true);
+  setHcop('Procesando con Claude...', false, true);
   document.getElementById('btnAnalyze').disabled = true;
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + settings.openai
+        'x-api-key': settings.anthropic,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'claude-sonnet-5',
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt + '\n\nTRANSCRIPCIÓN:\n' + text }]
       })
@@ -869,8 +879,9 @@ async function analyzeWithClaude() {
       throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
     }
     const data = await res.json();
-    if (data.choices?.[0]?.message?.content) {
-      setHcop(data.choices[0].message.content);
+    const textBlock = data.content?.find(b => b.type === 'text');
+    if (textBlock?.text) {
+      setHcop(textBlock.text);
     } else {
       throw new Error(data.error?.message || 'respuesta vacía');
     }
@@ -892,7 +903,7 @@ function stripAsterisks(text) {
 
 function setHcop(text, empty, loading) {
   const el = document.getElementById('hcopBox');
-  if (empty || !text) { el.textContent = 'El HCOP generado por GPT-4o aparecerá aquí...'; el.className = 'hcop-box empty'; }
+  if (empty || !text) { el.textContent = 'El HCOP generado por Claude aparecerá aquí...'; el.className = 'hcop-box empty'; }
   else if (loading) { el.textContent = text; el.className = 'hcop-box loading'; }
   else { el.textContent = stripAsterisks(text); el.className = 'hcop-box'; }
 }
@@ -1201,40 +1212,21 @@ function onImportFileSelected(event) {
   event.target.value = '';
 }
 
-async function uploadToOpenAI(base64Data, filename, mediaType, apiKey) {
-  const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-  const blob = new Blob([bytes], { type: mediaType });
-  const form = new FormData();
-  form.append('file', blob, filename);
-  form.append('purpose', 'user_data');
-  const res = await fetch('https://api.openai.com/v1/files', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + apiKey },
-    body: form
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Upload ${res.status}: ${err.error?.message || res.statusText}`);
-  }
-  return (await res.json()).id;
-}
-
 async function processStudy() {
   const settings = getSettings();
-  if (!settings.openai) { openSettings(); showToast('Configurá la API Key de OpenAI'); return; }
+  if (!settings.anthropic) { openSettings(); showToast('Configurá la API Key de Anthropic (Claude)'); return; }
 
   const btn = document.getElementById('btnProcess');
   const outEl = document.getElementById('importOutput');
   btn.disabled = true;
-  outEl.textContent = 'Procesando con GPT-4o...';
+  outEl.textContent = 'Procesando con Claude...';
   outEl.className = 'hcop-box loading';
 
   const promptText = PROMPT_IMPORT;
+  const systemMsg = 'Sos un extractor fiel de datos de informes médicos. Tu prioridad absoluta es reproducir los hallazgos EXACTAMENTE como aparecen en el documento. NUNCA inviertas un hallazgo. NUNCA afirmes ausencia de algo que esté descripto en el cuerpo del informe. Los hallazgos anatómicos del cuerpo del informe tienen precedencia sobre la conclusión final.';
 
   try {
-    let messageContent;
-
-    const systemMsg = 'Sos un extractor fiel de datos de informes médicos. Tu prioridad absoluta es reproducir los hallazgos EXACTAMENTE como aparecen en el documento. NUNCA inviertas un hallazgo. NUNCA afirmes ausencia de algo que esté descripto en el cuerpo del informe. Los hallazgos anatómicos del cuerpo del informe tienen precedencia sobre la conclusión final.';
+    let content;
 
     if (importInputType === 'file') {
       if (!importFiles.length) {
@@ -1245,60 +1237,15 @@ async function processStudy() {
         return;
       }
 
-      const hasPdf = importFiles.some(f => !f.mediaType.startsWith('image/'));
-
-      if (hasPdf) {
-        // PDFs → Files API + Responses API
-        const content = [];
-        for (const f of importFiles) {
-          outEl.textContent = 'Subiendo ' + f.name + '...';
-          const fileId = await uploadToOpenAI(f.data, f.name, f.mediaType, settings.openai);
-          if (f.mediaType.startsWith('image/')) {
-            content.push({ type: 'input_image', file_id: fileId });
-          } else {
-            content.push({ type: 'input_file', file_id: fileId });
-          }
-        }
-        content.push({ type: 'input_text', text: promptText });
-        outEl.textContent = 'Procesando con GPT-4o...';
-        const res = await fetch('https://api.openai.com/v1/responses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openai },
-          body: JSON.stringify({ model: 'gpt-4o', instructions: systemMsg, input: [{ role: 'user', content }] })
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
-        }
-        const data = await res.json();
-        const text = data.output_text || data.output?.[0]?.content?.[0]?.text;
-        if (text) { outEl.textContent = stripAsterisks(text); outEl.className = 'hcop-box'; }
-        else throw new Error('respuesta vacía');
-
-      } else {
-        // Solo imágenes → chat completions con image_url
-        const content = importFiles.map(f => ({
-          type: 'image_url', image_url: { url: 'data:' + f.mediaType + ';base64,' + f.data }
-        }));
-        content.push({ type: 'text', text: promptText });
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openai },
-          body: JSON.stringify({ model: 'gpt-4o', max_tokens: 2000,
-            messages: [{ role: 'system', content: systemMsg }, { role: 'user', content }] })
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
-        }
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content;
-        if (text) { outEl.textContent = stripAsterisks(text); outEl.className = 'hcop-box'; }
-        else throw new Error('respuesta vacía');
-      }
+      // Claude acepta PDF e imágenes en base64 directamente en el mensaje — sin paso de upload previo.
+      content = importFiles.map(f => f.mediaType.startsWith('image/')
+        ? { type: 'image', source: { type: 'base64', media_type: f.mediaType, data: f.data } }
+        : { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: f.data } }
+      );
+      content.push({ type: 'text', text: promptText });
 
     } else {
-      // Texto pegado → chat completions
+      // Texto pegado
       const text = document.getElementById('importText').value.trim();
       if (!text) {
         showToast('Pegá el texto primero');
@@ -1307,21 +1254,35 @@ async function processStudy() {
         outEl.className = 'hcop-box empty';
         return;
       }
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.openai },
-        body: JSON.stringify({ model: 'gpt-4o', max_tokens: 2000,
-          messages: [{ role: 'system', content: systemMsg },
-                     { role: 'user', content: promptText + '\n\nESTUDIO:\n' + text }] })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
-      }
-      const data = await res.json();
-      const result = data.choices?.[0]?.message?.content;
-      if (result) { outEl.textContent = stripAsterisks(result); outEl.className = 'hcop-box'; }
-      else throw new Error('respuesta vacía');
+      content = [{ type: 'text', text: promptText + '\n\nESTUDIO:\n' + text }];
+    }
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.anthropic,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        max_tokens: 2000,
+        system: systemMsg,
+        messages: [{ role: 'user', content }]
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`API ${res.status}: ${err.error?.message || res.statusText}`);
+    }
+    const data = await res.json();
+    const textBlock = data.content?.find(b => b.type === 'text');
+    if (textBlock?.text) {
+      outEl.textContent = stripAsterisks(textBlock.text);
+      outEl.className = 'hcop-box';
+    } else {
+      throw new Error(data.error?.message || 'respuesta vacía');
     }
   } catch(e) {
     outEl.textContent = 'Error: ' + e.message;
@@ -1363,7 +1324,7 @@ document.addEventListener('paste', (e) => {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        // Convertir a JPEG via canvas — OpenAI vision no acepta PNG inline
+        // Convertir a JPEG via canvas — reduce el tamaño del base64 antes de enviarlo a Claude
         const img = new Image();
         img.onload = () => {
           const MAX = 1920;
