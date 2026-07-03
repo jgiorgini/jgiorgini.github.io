@@ -613,11 +613,21 @@ async function startRec() {
     showToast('Configurá la API Key de OpenAI para usar Whisper');
     return;
   }
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, sampleRate: 16000 }, video: false });
-  } catch(e) {
-    showToast('Sin acceso al micrófono');
-    return;
+
+  const method = settings.method;
+
+  // El micrófono se pide acá SOLO para Whisper (necesita el audio crudo).
+  // En modo nativo, SpeechRecognition pide y captura el micrófono por su cuenta;
+  // si además abrimos getUserMedia acá, en Android el sistema operativo suele
+  // dejar el micrófono "tomado" por esta captura y el reconocimiento de voz
+  // nunca recibe audio (arranca pero no dispara resultados, sin error visible).
+  if (method === 'whisper') {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, sampleRate: 16000 }, video: false });
+    } catch(e) {
+      showToast('Sin acceso al micrófono');
+      return;
+    }
   }
 
   // Cancelar reintentos pendientes de sesión anterior
@@ -646,9 +656,8 @@ async function startRec() {
   setStatus('GRABANDO', 'recording');
   timerInterval = setInterval(updateTimer, 1000);
   await acquireWakeLock();
-  startLevelMeter();
+  if (method === 'whisper') startLevelMeter();
 
-  const method = settings.method;
   if (method === 'native') {
     startNative();
   } else {
@@ -725,9 +734,6 @@ function startNative() {
     }
   };
   recognition.start();
-  mediaRecorder = new MediaRecorder(stream, {});
-  mediaRecorder.ondataavailable = e => { if(e.data.size>0) allChunks.push(e.data); };
-  mediaRecorder.start(1000);
 }
 
 function togglePause() {
