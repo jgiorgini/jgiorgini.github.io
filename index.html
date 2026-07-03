@@ -697,8 +697,9 @@ function startWhisperRecorder() {
 function startNative() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { showToast('Web Speech no disponible. Usá Chrome.'); return; }
+  const isMobileNative = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   recognition = new SR();
-  recognition.continuous = true;
+  recognition.continuous = !isMobileNative; // en mobile, continuous:true corta el reconocimiento sin avisar
   recognition.interimResults = true;
   recognition.lang = 'es-AR';
   recognition.onresult = e => {
@@ -711,7 +712,18 @@ function startNative() {
     runCalcs(transcriptionText);
     document.getElementById('btnAnalyze').disabled = transcriptionText.trim().length < 5;
   };
-  recognition.onend = () => { if (isRecording && !isPaused) recognition.start(); };
+  recognition.onerror = e => {
+    if (e.error === 'not-allowed') {
+      showToast('⚠️ Permiso de micrófono denegado');
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      showToast('Error de reconocimiento: ' + e.error);
+    }
+  };
+  recognition.onend = () => {
+    if (isRecording && !isPaused) {
+      try { recognition.start(); } catch(e) {}
+    }
+  };
   recognition.start();
   mediaRecorder = new MediaRecorder(stream, {});
   mediaRecorder.ondataavailable = e => { if(e.data.size>0) allChunks.push(e.data); };
