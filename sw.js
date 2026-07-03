@@ -1,4 +1,4 @@
-const CACHE = 'cardiorec-v17-scope-fix';
+const CACHE = 'cardiorec-v18-icon-names';
 // Rutas relativas a este archivo (sw.js) — funcionan tanto si la app está
 // en la raíz del dominio como en una subcarpeta (ej: usuario.github.io/repo/).
 const ASSETS = ['./', './index.html', './manifest.json'];
