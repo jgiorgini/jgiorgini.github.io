@@ -1,11 +1,17 @@
-const CACHE = 'cardiorec-v16-mic-fix';
-const ASSETS = ['/', '/index.html', '/manifest.json'];
+const CACHE = 'cardiorec-v17-scope-fix';
+// Rutas relativas a este archivo (sw.js) — funcionan tanto si la app está
+// en la raíz del dominio como en una subcarpeta (ej: usuario.github.io/repo/).
+const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE)
-      .then(c => c.addAll(ASSETS.map(url => new Request(url, { cache: 'reload' }))))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE).then(c =>
+      // cache.add() individual en vez de addAll(): si un solo archivo falla
+      // (404, ruta incorrecta), no aborta la instalación completa del SW.
+      Promise.all(ASSETS.map(url =>
+        c.add(new Request(url, { cache: 'reload' })).catch(err => console.warn('SW: no se pudo cachear', url, err))
+      ))
+    ).then(() => self.skipWaiting())
   );
 });
 
