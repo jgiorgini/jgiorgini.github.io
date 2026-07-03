@@ -1,4 +1,4 @@
-const CACHE = 'cardiorec-v15-mobile-fix';
+const CACHE = 'cardiorec-v16-mic-fix';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
