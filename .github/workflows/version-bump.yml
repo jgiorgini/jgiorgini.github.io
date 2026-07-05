@@ -17,15 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compute version and update files
+      - name: Bump version and commit
         run: |
-          VERSION=$(git rev-list --count HEAD)
+          CURRENT=$(grep -oE 'id="appVersion"[^>]*>v[0-9]+' index.html | grep -oE '[0-9]+$')
+          VERSION=$((CURRENT + 1))
           sed -i -E "s/(id=\"appVersion\"[^>]*>)v[0-9]+</\1v${VERSION}</" index.html
           sed -i -E "s/(const CACHE = 'cardiorec-v)[0-9]+(')/\1${VERSION}\2/" sw.js
 
-      - name: Commit and push if changed
-        run: |
-          VERSION=$(git rev-list --count HEAD)
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet -- index.html sw.js; then
