@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="CardioRec"/>
 <link rel="manifest" href="manifest.json"/>
-<link rel="apple-touch-icon" href="icon-192.png"/>
+<link rel="apple-touch-icon" href="icon192.png"/>
 <title>CardioRec</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
 <style>
@@ -401,6 +401,9 @@ let isRecording = false;
 let isPaused = false;
 let seconds = 0;
 let timerInterval = null;
+let recStartTs = null;
+let pausedAccumMs = 0;
+let pauseStartedTs = null;
 let mediaRecorder = null;
 let stream = null;
 let audioChunks = [];
@@ -545,12 +548,14 @@ function setStatus(text, cls) {
 }
 
 function updateTimer() {
-  if (!isPaused) {
-    seconds++;
-    const m = String(Math.floor(seconds/60)).padStart(2,'0');
-    const s = String(seconds%60).padStart(2,'0');
-    document.getElementById('timer').textContent = m+':'+s;
-  }
+  if (isPaused || recStartTs === null) return;
+  // Se calcula a partir de marcas de tiempo (no incrementando un contador por tick),
+  // porque el navegador pausa/retarda setInterval con la pantalla apagada y un
+  // contador por tick se atrasaría respecto al tiempo real de grabación.
+  seconds = Math.floor((Date.now() - recStartTs - pausedAccumMs) / 1000);
+  const m = String(Math.floor(seconds/60)).padStart(2,'0');
+  const s = String(seconds%60).padStart(2,'0');
+  document.getElementById('timer').textContent = m+':'+s;
 }
 
 async function acquireWakeLock() {
@@ -645,6 +650,9 @@ async function startRec() {
   document.getElementById('segmentsWrap').style.display = 'none';
   document.getElementById('segList').innerHTML = '';
   seconds = 0;
+  recStartTs = Date.now();
+  pausedAccumMs = 0;
+  pauseStartedTs = null;
   document.getElementById('timer').textContent = '00:00';
   document.getElementById('btnAnalyze').disabled = true;
 
@@ -739,6 +747,7 @@ function startNative() {
 function togglePause() {
   if (!isPaused) {
     isPaused = true;
+    pauseStartedTs = Date.now();
     setStatus('PAUSADO', 'paused');
     document.getElementById('btnPause').textContent = '▶';
     if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.pause();
@@ -746,6 +755,7 @@ function togglePause() {
     releaseWakeLock();
   } else {
     isPaused = false;
+    if (pauseStartedTs !== null) { pausedAccumMs += Date.now() - pauseStartedTs; pauseStartedTs = null; }
     setStatus('GRABANDO', 'recording');
     document.getElementById('btnPause').textContent = '⏸';
     if (mediaRecorder && mediaRecorder.state === 'paused') mediaRecorder.resume();
@@ -1369,6 +1379,7 @@ document.addEventListener('paste', (e) => {
 
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && isRecording && !isPaused) {
+    updateTimer(); // recalcula al instante el tiempo real transcurrido, sin esperar al próximo tick
     if (!wakeLock) {
       await acquireWakeLock();
       showToast('⚠️ La pantalla se apagó mientras grababas. Verificá que la grabación continúa.');
