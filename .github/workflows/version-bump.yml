@@ -1,0 +1,35 @@
+name: Bump app version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'sw.js'
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute version and update files
+        run: |
+          VERSION=$(git rev-list --count HEAD)
+          sed -i -E "s/(id=\"appVersion\"[^>]*>)v[0-9]+</\1v${VERSION}</" index.html
+          sed -i -E "s/(const CACHE = 'cardiorec-v)[0-9]+(')/\1${VERSION}\2/" sw.js
+
+      - name: Commit and push if changed
+        run: |
+          VERSION=$(git rev-list --count HEAD)
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- index.html sw.js; then
+            git add index.html sw.js
+            git commit -m "chore: bump version to v${VERSION} [skip ci]"
+            git push
+          fi
