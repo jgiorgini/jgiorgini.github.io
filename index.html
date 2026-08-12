@@ -187,7 +187,7 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
 
 <div class="app">
   <div class="header">
-    <div class="logo">Cardio<span>Rec</span><span id="appVersion" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v1</span></div>
+    <div class="logo">Cardio<span>Rec</span><span id="appVersion" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);font-style:normal;margin-left:8px;letter-spacing:0.04em">v14</span></div>
     <div class="settings-btn" onclick="openSettings()">⚙</div>
   </div>
 
@@ -417,6 +417,9 @@ let recognition = null;
 let transcriptionText = '';
 let segmentCount = 0;
 let segments = [];
+let whisperResponsesByChunk = new Map();
+let whisperNextChunkToAccumulate = 1;
+let whisperTimelineOffset = 0;
 let segRetryTimers = {};
 let initChunk = null; // primer chunk de webm — contiene el header EBML necesario
 let recorderExt = 'webm';
@@ -435,6 +438,55 @@ function saveBackup() {
 
 function clearBackup() {
   localStorage.removeItem(BACKUP_KEY);
+}
+
+function resetWhisperSegmentTimeline() {
+  segments = [];
+  whisperResponsesByChunk = new Map();
+  whisperNextChunkToAccumulate = 1;
+  whisperTimelineOffset = 0;
+}
+
+function accumulateWhisperSegments(chunkNumber, response) {
+  // Los timestamps de Whisper son relativos a cada bloque de audio. Se ordenan
+  // por número de bloque y se desplazan solo con duración devuelta por Whisper,
+  // nunca con timeslice, el intervalo de 90 s ni el reloj de la interfaz.
+  whisperResponsesByChunk.set(chunkNumber, response);
+  while (whisperResponsesByChunk.has(whisperNextChunkToAccumulate)) {
+    const chunk = whisperResponsesByChunk.get(whisperNextChunkToAccumulate);
+    const providerSegments = Array.isArray(chunk.segments) ? chunk.segments : [];
+    const validSegments = providerSegments.filter(segment =>
+      Number.isFinite(segment.start) && Number.isFinite(segment.end) &&
+      segment.start >= 0 && segment.end >= segment.start &&
+      typeof segment.text === 'string'
+    );
+
+    // Sin timestamps de Whisper no se crea ningún segmento artificial.
+    validSegments.forEach((segment, index) => {
+      segments.push({
+        segment_id: `whisper-${whisperNextChunkToAccumulate}-${segment.id ?? index}`,
+        start_time: whisperTimelineOffset + segment.start,
+        end_time: whisperTimelineOffset + segment.end,
+        text: segment.text,
+        speaker: 'unknown',
+        speaker_role: 'unknown',
+        source: 'whisper'
+      });
+    });
+
+    // duration y, como respaldo, end provienen de la propia respuesta. Si no
+    // existen, se conserva el texto plano y se espera para no fabricar tiempos.
+    const responseDuration = Number.isFinite(chunk.duration)
+      ? chunk.duration
+      : validSegments.length
+        ? Math.max(...validSegments.map(segment => segment.end))
+        : null;
+    if (responseDuration === null) return;
+
+    whisperTimelineOffset += responseDuration;
+    whisperResponsesByChunk.delete(whisperNextChunkToAccumulate);
+    whisperNextChunkToAccumulate++;
+  }
 }
 
 function checkBackup() {
@@ -640,7 +692,7 @@ async function startRec() {
   segRetryTimers = {};
   initChunk = null;
   transcriptionText = '';
-  segments = [];
+  resetWhisperSegmentTimeline();
   segmentCount = 0;
   allChunks = [];
   audioChunks = [];
@@ -841,6 +893,8 @@ async function transcribeSegment(blob, num, isFinal, retryCount) {
     fd.append('file', blob, 'audio.' + recorderExt);
     fd.append('model', 'whisper-1');
     fd.append('language', 'es');
+    fd.append('response_format', 'verbose_json');
+    fd.append('timestamp_granularities[]', 'segment');
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + settings.openai },
@@ -852,6 +906,7 @@ async function transcribeSegment(blob, num, isFinal, retryCount) {
     }
     const data = await res.json();
     if (data.text) {
+      accumulateWhisperSegments(num, data);
       const corrected = applyDiccionario(data.text);
       if (isFinal) transcriptionText = corrected;
       else transcriptionText += (transcriptionText ? ' ' : '') + corrected;
